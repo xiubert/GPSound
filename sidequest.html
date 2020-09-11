@@ -1,0 +1,121 @@
+<body>
+    <button id="start">START</button>
+    <button id="stop">STOP</button>
+    <button id="incVol">RAMP UP THE SYNTH</button>
+    <button id="decVol">RAMP DOWN THE SYNTH</button>
+</body>
+
+<script src="Tone.js"></script>
+<script>
+    //NOTES:
+    // change tempo: Tone.transport.rampTo(bpm,timeToBPM)
+
+    document.querySelector('#start')?.addEventListener('click', async () => {
+        await Tone.start()
+        Tone.Transport.start();
+        console.log('audio is game')
+    });
+
+    document.querySelector('#stop')?.addEventListener('click', () => {
+        console.log('stopping audio')
+        Tone.Transport.stop()
+        index = 0;
+    });
+
+    document.querySelector('#incVol')?.addEventListener('click', () => {
+        console.log('ramping up synth vol')
+        synth.volume.rampTo(40,2)
+    });
+
+    document.querySelector('#decVol')?.addEventListener('click', () => {
+        console.log('ramping down synth vol')
+        synth.volume.rampTo(-10,2)
+    });
+
+    var noteIndex = 0;
+    var volIndex = 0;
+
+    var notes = [
+        'D4', 'F#4', 'A4',
+        'D5', 'F#5', 'A5'
+    ]
+
+    var notes2 = [
+        'A5', 'F#5', 'D5',
+        'A4', 'F#4', 'D4'
+    ]
+
+    var vols = [
+        '-10', '0', '5',
+        '10', '15', '20',
+    ]
+
+    // var times = [
+    //     "0:0:2","0:1:0","0:1:2","0:2:0",
+    //     "0:2:2","0:3:0","0:3:2","0:0:2"
+    // ]
+
+    const synth = new Tone.Synth().toDestination();
+    const psynth = new Tone.PolySynth().toDestination();
+
+    function repeatNote(time) {
+        let note = notes[noteIndex % notes.length];
+        synth.triggerAttackRelease(note, '8n', time);
+        
+        let volSet = vols[noteIndex % vols.length];
+        synth.volume.value = volSet
+        noteIndex++;
+    }
+
+    //(time,notes,instrument)
+    function repeatPNote(time) {
+        let note = notes[noteIndex % notes2.length];
+        psynth.triggerAttackRelease(note, '8n', time);
+        
+        let volSet = vols[volIndex % vols.length];
+        synth.volume.value = volSet
+        volIndex++;
+    }
+
+
+
+    // function repeatSynthNote(time,noteArr,synthH) {
+    //     let note = noteArr[]
+    // }
+
+    // const part = new Tone.part(((time, note) => {
+    //     synth.triggerAttackRelease(note,"8n", time);
+    // }), [[0, "C2"]] //[times[x], notes[x]
+
+    // function repeatVol(time) {
+    //     let volSet = vols[volIndex % vols.length];
+    //     synth.volume.value = volSet;
+    //     volIndex++;
+    // }
+
+    // Tone.Transport.scheduleRepeat(time => {
+    //     repeat(time);
+    // }, '8n', '0s', '10s');
+
+    Tone.Transport.scheduleRepeat(time => {
+        repeatNote(time);
+        // repeatVol(time);
+        repeatPNote(time)
+    }, '16n');
+
+    // Tone.Transport.scheduleRepeat(time => {
+    //     // repeatNote(time);
+    //     // repeatVol(time);
+    //     repeatPNote(time)
+    // }, '8n');
+
+
+
+
+
+    // // or set 3rd input of scheduleRepeat
+    // setTimeout(() => {
+    //     Tone.Transport.stop();
+    // }, 10000)
+
+</script>

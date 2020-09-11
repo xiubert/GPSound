@@ -1,0 +1,127 @@
+<script src="Tone.js"></script>
+<link rel="stylesheet" href="leaflet/leaflet.css" />
+<script src="leaflet/leaflet-src.js"></script>
+<style>
+    #map {
+        height: 400px;
+        width: 400px;
+    }
+</style>
+
+<body>
+    <p>HELLO THERE WORLD</p>
+    <button id="start">START</button>
+    <button id="stoppit">STOPPIT NOW</button>
+    <div id="map"></div>
+    <div id="loc" style="width: 300px; height: 300px; background-color: gray"></div>
+</body>
+<script>
+    // initialize the map
+    var loc1 = [42.308669, -83.747157];
+    var map = L.map('map').setView(loc1, 13);
+    L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoieGl1YmVydCIsImEiOiJja2VnMW4wM2owZGpqMzBvNG4xeWNwdDljIn0.czf_GAx-bDfDmOwz1WjUtg', {
+        attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+        maxZoom: 18,
+        id: 'mapbox/satellite-v9',
+        tileSize: 512,
+        zoomOffset: -1,
+        accessToken: 'pk.eyJ1IjoieGl1YmVydCIsImEiOiJja2VnMW4wM2owZGpqMzBvNG4xeWNwdDljIn0.czf_GAx-bDfDmOwz1WjUtg'
+    }).addTo(map);
+
+
+    // [left_start, left_end, top_start, top_end]
+    // 0  1
+    // 2  3
+    const quadrant0 = [0, 150, 0, 150];
+    const quadrant1 = [150, 300, 0, 150];
+    const quadrant2 = [0, 150, 150, 300];
+    const quadrant3 = [150, 300, 150, 300];
+
+    function in_quadrant(left, top, quadrant) {
+        q_ls = quadrant[0];
+        q_le = quadrant[1];
+        q_ts = quadrant[2];
+        q_te = quadrant[3];
+
+        return (
+            left >= q_ls && left < q_le &&
+            top >= q_ts && top < q_te)
+    }
+
+    function which_quadrant(left, top) {
+        if (in_quadrant(left, top, quadrant0)) { return 0; }
+        if (in_quadrant(left, top, quadrant1)) { return 1; }
+        if (in_quadrant(left, top, quadrant2)) { return 2; }
+        if (in_quadrant(left, top, quadrant3)) { return 3; }
+    }
+
+    const bpms = [
+        50,
+        100,
+        150,
+        200
+    ];
+
+    const loopRates = [
+        "2n", "4n", "8n", "16n"
+    ];
+
+    //Synth detune by XY
+    const synth = new Tone.Synth().toDestination();
+
+    //BEAT by quadrant
+    const beat = new Tone.MembraneSynth().toDestination();
+    loopA = new Tone.Loop(time => { beat.triggerAttackRelease("C2", "8n", time); }, "4n").start(0);
+
+    document.querySelector('#start')?.addEventListener('click', async () => {
+        await Tone.start()
+        Tone.Transport.start()
+        console.log('audio is ready, transport started')
+        synth.triggerAttack("C4"); //synth on until expressly stopped
+
+        // if ('geolocation' in navigator) {
+        //     /* geolocation is available */
+        //     console.log('geo loc avail')
+        // } else {
+        //     /* geolocation IS NOT available */
+        //     console.log('geoloc not avail on device')
+        // }
+
+        // const pos = navigator.geolocation.getCurrentPosition(
+        //     function success(pos) {
+        //         const crd = pos.coords;
+        //         console.log('Your current position is:');
+        //         console.log(`Latitude : ${crd.latitude}`);
+        //         console.log(`Longitude: ${crd.longitude}`);
+        //         console.log(`More or less ${crd.accuracy} meters.`);
+        //     },
+        //     function error(err) {
+        //         console.warn(`ERROR(${err.code}): ${err.message}`);
+        //     },
+        //     {
+        //         enableHighAccuracy: true
+        //     }
+        // );
+
+    });
+
+    document.querySelector('#stoppit')?.addEventListener('click', () => {
+        console.log('stopping audio as requested')
+        synth.triggerRelease();
+        Tone.Transport.stop()
+    });
+
+    document.querySelector('#loc').addEventListener('mousemove', e => {
+        console.log('Current mouse position: ');
+        console.log(`X: ${e.offsetX}`);
+        console.log(`Y: ${e.offsetY}`);
+        const quadrant = which_quadrant(e.offsetX, e.offsetY);
+        // const bpm = bpms[quadrant];
+        //Tone.Transport.bpm.rampTo(bpm, 0.5)
+        //or loopA.interval = "4n"; //8n, 16n, 24n, etc if idependent of BPM
+        const loopRate = loopRates[quadrant];
+        loopA.interval = loopRate;
+
+        synth.detune.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
+    });
+</script>
