@@ -41,8 +41,8 @@
     ]
 
     var notes2 = [
-        'A5', 'F#5', 'D5',
-        'A4', 'F#4', 'D4'
+        'A5', 'F#5', 'D5','A4',
+        'A4', 'F#4', 'D4','A5'
     ]
 
     var vols = [
@@ -50,10 +50,10 @@
         '10', '15', '20',
     ]
 
-    // var times = [
-    //     "0:0:2","0:1:0","0:1:2","0:2:0",
-    //     "0:2:2","0:3:0","0:3:2","0:0:2"
-    // ]
+    var times = [
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"
+    ]
 
     const synth = new Tone.Synth().toDestination();
     const psynth = new Tone.PolySynth().toDestination();
@@ -83,9 +83,16 @@
     //     let note = noteArr[]
     // }
 
-    // const part = new Tone.part(((time, note) => {
-    //     synth.triggerAttackRelease(note,"8n", time);
-    // }), [[0, "C2"]] //[times[x], notes[x]
+    const part = new Tone.Part(((time, note) => {
+        synth.triggerAttackRelease(note,"8n", time);
+    }), times.map((x,i) => [x, notes[i]]));//[[0, "C2"]]); //times[x], notes[x]
+
+    //with JSON
+    const part2 = new Tone.Part({"callback":((time, note) => {
+        synth.triggerAttackRelease(note,"8n", time);
+    }), "events":times.map((x,i) => [x, notes2[i]]), "loop":true});//[[0, "C2"]]); //times[x], notes[x]
+
+
 
     // function repeatVol(time) {
     //     let volSet = vols[volIndex % vols.length];
@@ -101,7 +108,13 @@
         repeatNote(time);
         // repeatVol(time);
         repeatPNote(time)
-    }, '16n');
+    }, '16n',0,1);
+
+    // Tone.Transport.scheduleRepeat({"callback":((time) => {
+    //     repeatNote(time);
+    //     // repeatVol(time);
+    //     repeatPNote(time)
+    // }), "interval":'16n',"startTime":0,"duration":1});
 
     // Tone.Transport.scheduleRepeat(time => {
     //     // repeatNote(time);
