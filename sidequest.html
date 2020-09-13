@@ -55,6 +55,49 @@
         "0:2:0","0:2:2","0:3:0","0:3:2"
     ]
 
+    var quad0 = {
+        coor:[0, 150, 0, 150],
+        synthName:"psynth",
+        synthPartNotes:[
+        'A5', 'F#5', 'D5','A4',
+        'A4', 'F#4', 'D4','A5'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        };
+
+    var quad1 = {
+        coor:[150, 300, 0, 150],
+        synthName:"synth",
+        synthPartNotes:[
+        'A4', 'F#5', 'D4','A5',
+        'A5', 'F#4', 'D5','A4'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        };
+
+    var quad2 = {
+        coor:[0, 150, 150, 300],
+        synthPartNotes:[
+        'A5', 'F#5', 'D5','A4',
+        'A4', 'F#4', 'D4','A5'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        };
+
+    var quad3 = {
+        coor:[150, 300, 150, 300],
+        synthPartNotes:[
+        'A5', 'F#5', 'D5','A4',
+        'A4', 'F#4', 'D4','A5'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        };
+
+
     const synth = new Tone.Synth().toDestination();
     const psynth = new Tone.PolySynth().toDestination();
 
@@ -89,10 +132,44 @@
 
     //with JSON
     const part2 = new Tone.Part({"callback":((time, note) => {
-        synth.triggerAttackRelease(note,"8n", time);
-    }), "events":times.map((x,i) => [x, notes2[i]]), "loop":true});//[[0, "C2"]]); //times[x], notes[x]
+        synth.triggerAttackRelease(note,"8n", time);}),
+        "events":times.map((x,i) => [x, notes2[i]]),
+        "loop":true});//[[0, "C2"]]); //times[x], notes[x]
+
+    //with JSON
+    var curQuad = quad0;
+
+    const part3 = new Tone.Part({"callback":((time, note) => {
+        synth.triggerAttackRelease(note,"8n", time);}),
+        "events":curQuad.synthPartTimes.map((x,i) => [x, curQuad.synthPartNotes[i]]),
+        "loop":true});//[[0, "C2"]]); //times[x], notes[x]
+
+    const part4 = new Tone.Part({"callback":((time, note) => {
+        eval(curQuad.synthName + '.triggerAttackRelease(' + 'note' + ',"8n",' + 'time' + ');');}),
+        "events":curQuad.synthPartTimes.map((x,i) => [x, curQuad.synthPartNotes[i]]),
+        "loop":true});//[[0, "C2"]]); //times[x], notes[x]
 
 
+// FM oscillator testing
+    const fmOsc = new Tone.FMOscillator({
+		frequency: 200,
+		type: "square",
+		modulationType: "triangle",
+		harmonicity: 0.2,
+		modulationIndex: 3
+	}).toDestination();
+    //freq min = ~5
+    //freq max = ~200
+    //freq norm = (param - min)/(max-min)
+    //param = sqrt(x^2 + y^2)
+    function norm(param,min,max) {
+        return ((param - min)/(max-min))
+    }
+    
+    //fmOsc.frequency.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
+    fmOsc.frequency.value = 30;
+    fmOsc.type = "sine";
+    fmOsc.modulationType = "square";
 
     // function repeatVol(time) {
     //     let volSet = vols[volIndex % vols.length];

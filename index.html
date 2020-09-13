@@ -115,6 +115,7 @@
         console.log('Current mouse position: ');
         console.log(`X: ${e.offsetX}`);
         console.log(`Y: ${e.offsetY}`);
+        console.log(`pos: ${Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))}`);
         const quadrant = which_quadrant(e.offsetX, e.offsetY);
         // const bpm = bpms[quadrant];
         //Tone.Transport.bpm.rampTo(bpm, 0.5)
