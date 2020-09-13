@@ -162,10 +162,33 @@
     //freq max = ~200
     //freq norm = (param - min)/(max-min)
     //param = sqrt(x^2 + y^2)
+    //pos (w/ 300x300): min 1.4142 max 424.2641
+    function minMaxGridPos(maxX,maxY) {
+        return([Math.sqrt(Math.pow(1, 2) + Math.pow(1, 2)),
+        Math.sqrt(Math.pow(maxX, 2) + Math.pow(maxY, 2))])
+    }
+
+    function minGridPos() {
+        return Math.sqrt(Math.pow(1, 2) + Math.pow(1, 2))
+    }
+
+    function maxGridPos(maxX,maxY) {
+        return Math.sqrt(Math.pow(maxX, 2) + Math.pow(maxY, 2))
+    }
+
     function norm(param,min,max) {
         return ((param - min)/(max-min))
     }
-    
+
+    function rescale(pos,paramMin,paramMax,posMin,posMax) {
+        return ((paramMax-paramMin)*(pos - posMin))/(posMax - posMin) + paramMin
+    }
+
+    //example with osc freq as param
+    //fmOsc.frequency.value = rescale(pos,5,200,minMaxGridPos(maxX,maxY)[0],minMaxGridPos(maxX,maxY))
+    //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY))
+
+
     //fmOsc.frequency.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
     fmOsc.frequency.value = 30;
     fmOsc.type = "sine";
