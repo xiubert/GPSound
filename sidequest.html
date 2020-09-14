@@ -79,7 +79,7 @@
 
     function playNotes(synth, notes, times) {
         const partHelper = new Tone.Part({"callback":((time, note) => {
-        curQuad.synth.triggerAttackRelease(note, "8n", time);}),
+        synth.triggerAttackRelease(note, "8n", time);}),
         "events":times.map((x,i) => [x, notes[i]]),
         "loop":true});
         partHelper.start();
