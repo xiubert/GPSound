@@ -29,6 +29,9 @@
     }).addTo(map);
 
 
+    const synth = new Tone.Synth().toDestination();
+    const psynth = new Tone.PolySynth().toDestination();
+
     // [left_start, left_end, top_start, top_end]
     // 0  1
     // 2  3
@@ -67,7 +70,7 @@
     ];
 
     //Synth detune by XY
-    const synth = new Tone.Synth().toDestination();
+    //const synth = new Tone.Synth().toDestination();
 
     //BEAT by quadrant
     const beat = new Tone.MembraneSynth().toDestination();

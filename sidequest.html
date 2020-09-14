@@ -55,9 +55,44 @@
         "0:2:0","0:2:2","0:3:0","0:3:2"
     ]
 
+    function rescale(pos,paramMin,paramMax,posMin,posMax) {
+        return ((paramMax-paramMin)*(pos - posMin))/(posMax - posMin) + paramMin
+    }
+
+    function minGridPos() {
+        return Math.sqrt(Math.pow(1, 2) + Math.pow(1, 2))
+    }
+
+    function maxGridPos(maxX,maxY) {
+        return Math.sqrt(Math.pow(maxX, 2) + Math.pow(maxY, 2))
+    }
+
+    const synth = new Tone.Synth().toDestination();
+    const psynth = new Tone.PolySynth().toDestination();
+    const fmOsc = new Tone.FMOscillator({
+		frequency: 200,
+		type: "square",
+		modulationType: "triangle",
+		harmonicity: 0.2,
+		modulationIndex: 3
+    }).toDestination().start();
+
+    function playNotes(synth, notes, times) {
+        const partHelper = new Tone.Part({"callback":((time, note) => {
+        curQuad.synth.triggerAttackRelease(note, "8n", time);}),
+        "events":times.map((x,i) => [x, notes[i]]),
+        "loop":true});
+        partHelper.start();
+        return partHelper;
+    }
+
+    function getPos() {
+        // TODO
+    }
+    
     var quad0 = {
         coor:[0, 150, 0, 150],
-        synthName:"psynth",
+        synth:psynth,
         synthPartNotes:[
         'A5', 'F#5', 'D5','A4',
         'A4', 'F#4', 'D4','A5'],
@@ -66,17 +101,35 @@
         "0:2:0","0:2:2","0:3:0","0:3:2"],
         };
 
+// OSC options
+// fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY))
+// fmOsc.frequency.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
+// fmOsc.frequency.value = 30;
+// fmOsc.type = "sine";
+// fmOsc.modulationType = "square";
+
     var quad1 = {
         coor:[150, 300, 0, 150],
-        synthName:"synth",
         synthPartNotes:[
         'A4', 'F#5', 'D4','A5',
         'A5', 'F#4', 'D5','A4'],
         synthPartTimes:[
         "0","0:0:2","0:1:0","0:1:2",
         "0:2:0","0:2:2","0:3:0","0:3:2"],
-        };
+        partHelper: null,
+        //velocity future
+        enterRegion: function () {
+            this.partHelper = playNotes(synth, this.synthPartNotes, this.synthPartTimes);
+            //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
+            fmOsc.frequency.value = 44;
+        },
+        leaveRegion: function () {
+            // sample
+            this.partHelper.stop();
+        }
+    };
 
+    //TO EDIT as above...
     var quad2 = {
         coor:[0, 150, 150, 300],
         synthPartNotes:[
@@ -97,9 +150,6 @@
         "0:2:0","0:2:2","0:3:0","0:3:2"],
         };
 
-
-    const synth = new Tone.Synth().toDestination();
-    const psynth = new Tone.PolySynth().toDestination();
 
     function repeatNote(time) {
         let note = notes[noteIndex % notes.length];
@@ -145,54 +195,39 @@
         "loop":true});//[[0, "C2"]]); //times[x], notes[x]
 
     const part4 = new Tone.Part({"callback":((time, note) => {
-        eval(curQuad.synthName + '.triggerAttackRelease(' + 'note' + ',"8n",' + 'time' + ');');}),
+        curQuad.synth.triggerAttackRelease(note, "8n", time);}),
         "events":curQuad.synthPartTimes.map((x,i) => [x, curQuad.synthPartNotes[i]]),
         "loop":true});//[[0, "C2"]]); //times[x], notes[x]
 
 
 // FM oscillator testing
-    const fmOsc = new Tone.FMOscillator({
-		frequency: 200,
-		type: "square",
-		modulationType: "triangle",
-		harmonicity: 0.2,
-		modulationIndex: 3
-	}).toDestination();
+    // const fmOsc = new Tone.FMOscillator({
+	// 	frequency: 200,
+	// 	type: "square",
+	// 	modulationType: "triangle",
+	// 	harmonicity: 0.2,
+	// 	modulationIndex: 3
+	// }).toDestination();
     //freq min = ~5
     //freq max = ~200
     //freq norm = (param - min)/(max-min)
     //param = sqrt(x^2 + y^2)
     //pos (w/ 300x300): min 1.4142 max 424.2641
+
     function minMaxGridPos(maxX,maxY) {
         return([Math.sqrt(Math.pow(1, 2) + Math.pow(1, 2)),
         Math.sqrt(Math.pow(maxX, 2) + Math.pow(maxY, 2))])
-    }
-
-    function minGridPos() {
-        return Math.sqrt(Math.pow(1, 2) + Math.pow(1, 2))
-    }
-
-    function maxGridPos(maxX,maxY) {
-        return Math.sqrt(Math.pow(maxX, 2) + Math.pow(maxY, 2))
     }
 
     function norm(param,min,max) {
         return ((param - min)/(max-min))
     }
 
-    function rescale(pos,paramMin,paramMax,posMin,posMax) {
-        return ((paramMax-paramMin)*(pos - posMin))/(posMax - posMin) + paramMin
-    }
+
 
     //example with osc freq as param
     //fmOsc.frequency.value = rescale(pos,5,200,minMaxGridPos(maxX,maxY)[0],minMaxGridPos(maxX,maxY))
-    //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY))
-
-
-    //fmOsc.frequency.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
-    fmOsc.frequency.value = 30;
-    fmOsc.type = "sine";
-    fmOsc.modulationType = "square";
+    
 
     // function repeatVol(time) {
     //     let volSet = vols[volIndex % vols.length];
