@@ -110,6 +110,7 @@
 
     var quad1 = {
         coor:[150, 300, 0, 150],
+        roiSynth:psynth,
         synthPartNotes:[
         'A4', 'F#5', 'D4','A5',
         'A5', 'F#4', 'D5','A4'],
@@ -119,7 +120,7 @@
         partHelper: null,
         //velocity future
         enterRegion: function () {
-            this.partHelper = playNotes(synth, this.synthPartNotes, this.synthPartTimes);
+            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
             //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
             fmOsc.frequency.value = 44;
         },
