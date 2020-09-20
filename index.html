@@ -28,10 +28,25 @@
         accessToken: 'pk.eyJ1IjoieGl1YmVydCIsImEiOiJja2VnMW4wM2owZGpqMzBvNG4xeWNwdDljIn0.czf_GAx-bDfDmOwz1WjUtg'
     }).addTo(map);
 
-
+    //INSTRUMENTS:
+    //SYNTHS:
     const synth = new Tone.Synth().toDestination();
     const psynth = new Tone.PolySynth().toDestination();
+    const fmOsc = new Tone.FMOscillator({
+		frequency: 200,
+		type: "sine",
+		modulationType: "triangle",
+		harmonicity: 0.2,
+		modulationIndex: 3
+    }).toDestination();
+    
+    //BEATS:
+    const beat = new Tone.MembraneSynth().toDestination();
+    //LOOPS:
+    beatLoop0 = new Tone.Loop(time => { beat.triggerAttackRelease("C2", "8n", time); }, "4n");
 
+
+    //REGIONS:
     // [left_start, left_end, top_start, top_end]
     // 0  1
     // 2  3
@@ -40,6 +55,21 @@
     const quadrant2 = [0, 150, 150, 300];
     const quadrant3 = [150, 300, 150, 300];
 
+
+    //PARTS / SEQUENCES (MOSTLY VESTIGIAL):
+    const bpms = [
+        50,
+        100,
+        150,
+        200
+    ];
+
+    const loopRates = [
+        "2n", "4n", "8n", "16n"
+    ];
+
+
+    //HELPERS:
     function in_quadrant(left, top, quadrant) {
         q_ls = quadrant[0];
         q_le = quadrant[1];
@@ -58,29 +88,136 @@
         if (in_quadrant(left, top, quadrant3)) { return 3; }
     }
 
-    const bpms = [
-        50,
-        100,
-        150,
-        200
-    ];
+    function playNotes(synth, notes, times) {
+        const partHelper = new Tone.Part({"callback":((time, note) => {
+        synth.triggerAttackRelease(note, "8n", time);}),
+        "events":times.map((x,i) => [x, notes[i]]),
+        "loop":true});
+        partHelper.start();
+        return partHelper;
+    }
 
-    const loopRates = [
-        "2n", "4n", "8n", "16n"
-    ];
+    function getPos() {
+        // TODO
+    }
 
-    //Synth detune by XY
-    //const synth = new Tone.Synth().toDestination();
 
-    //BEAT by quadrant
-    const beat = new Tone.MembraneSynth().toDestination();
-    loopA = new Tone.Loop(time => { beat.triggerAttackRelease("C2", "8n", time); }, "4n").start(0);
+    //ROIs:
+    var roi0 = {
+        coor:quadrant0,
+        roiSynth:psynth,
+        roiBPM:50, //this is global, interval is local to beat
+        beatLoop:beatLoop0,
+        roiBeatInterval:"2n",
+        synthPartNotes:[
+        'A4', 'F#5', 'D4','A5',
+        'A5', 'F#4', 'D5','A4'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        partHelper: null,
+        //velocity future
+        enterRegion: function () {
+            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
+            fmOsc.frequency.value = 44;
+        },
+        leaveRegion: function () {
+            // sample
+            this.partHelper.stop();
+        }
+    };
 
+    var roi1 = {
+        coor:quadrant1,
+        roiSynth:psynth,
+        roiBPM:100,
+        beatLoop:beatLoop0,
+        roiBeatInterval:"4n",
+        synthPartNotes:[
+        'A4', 'F#5', 'D4','A5',
+        'A5', 'F#4', 'D5','A4'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        partHelper: null,
+        //velocity future
+        enterRegion: function () {
+            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
+            fmOsc.frequency.value = 88;
+        },
+        leaveRegion: function () {
+            // sample
+            this.partHelper.stop();
+        }
+    };
+
+    var roi2 = {
+        coor:quadrant2,
+        roiSynth:psynth,
+        roiBPM:150,
+        beatLoop:beatLoop0,
+        roiBeatInterval:"8n",
+        synthPartNotes:[
+        'A4', 'F#5', 'D4','A5',
+        'A5', 'F#4', 'D5','A4'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        partHelper: null,
+        //velocity future
+        enterRegion: function () {
+            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
+            fmOsc.frequency.value = 100;
+        },
+        leaveRegion: function () {
+            // sample
+            this.partHelper.stop();
+        }
+    };
+
+    var roi3 = {
+        coor:quadrant3,
+        roiSynth:psynth,
+        roiBPM:200,
+        beatLoop:beatLoop0,
+        roiBeatInterval:"16n",
+        synthPartNotes:[
+        'A4', 'F#5', 'D4','A5',
+        'A5', 'F#4', 'D5','A4'],
+        synthPartTimes:[
+        "0","0:0:2","0:1:0","0:1:2",
+        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        partHelper: null,
+        //velocity future
+        enterRegion: function () {
+            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
+            fmOsc.frequency.value = 120;
+        },
+        leaveRegion: function () {
+            // sample
+            this.partHelper.stop();
+        }
+    };
+
+    //temporary until getPos etc done...
+    regions = [roi0,roi1,roi2,roi3];
+
+
+    //HTML INTERACTION:
+    //START SOUND:
     document.querySelector('#start')?.addEventListener('click', async () => {
         await Tone.start()
         Tone.Transport.start()
         console.log('audio is ready, transport started')
         synth.triggerAttack("C4"); //synth on until expressly stopped
+        fmOsc.start(0);
+        fmOsc.volume.value = -5;
+        beatLoop0.start(0);
+        roi0.enterRegion();
 
         // if ('geolocation' in navigator) {
         //     /* geolocation is available */
@@ -108,23 +245,40 @@
 
     });
 
+    //STOP SOUND:
     document.querySelector('#stoppit')?.addEventListener('click', () => {
         console.log('stopping audio as requested')
         synth.triggerRelease();
+        fmOsc.stop();
         Tone.Transport.stop()
     });
 
+    //SOUND MOD ON MOUSE MOVE IN REGION
     document.querySelector('#loc').addEventListener('mousemove', e => {
         console.log('Current mouse position: ');
         console.log(`X: ${e.offsetX}`);
         console.log(`Y: ${e.offsetY}`);
         console.log(`pos: ${Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))}`);
-        const quadrant = which_quadrant(e.offsetX, e.offsetY);
+        var quadrant = which_quadrant(e.offsetX, e.offsetY);
         // const bpm = bpms[quadrant];
         //Tone.Transport.bpm.rampTo(bpm, 0.5)
-        //or loopA.interval = "4n"; //8n, 16n, 24n, etc if idependent of BPM
-        const loopRate = loopRates[quadrant];
-        loopA.interval = loopRate;
+        //or beatLoop0.interval = "4n"; //8n, 16n, 24n, etc if idependent of BPM
+        // const loopRate = loopRates[quadrant];
+        // beatLoop0.interval = loopRate;
+
+        // NEEDS FIXING
+        const cquad = quadrant;  //SHOULD BE OUTSIDE OF THIS FCN //SHOULD BE PART OF GETPOS
+        if (cquad!=quadrant) {
+            var croi = regions[cquad];
+            croi.leaveRegion();
+            var roi = regions[quadrant];
+            roi.enterRegion();
+        }
+
+
+        //REGION CALL:
+        // var roi = regions[quadrant];
+        // roi.enterRegion();
 
         synth.detune.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
     });
