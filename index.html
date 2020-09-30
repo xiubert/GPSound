@@ -1,4 +1,10 @@
-<script src="Tone.js"></script>
+<!-- <script src="master.js"></script> -->
+<script type="text/javascript" src="Tone.js"></script>
+<!-- <script type="text/javascript" src="instruments.js"></script> 
+<script type="text/javascript" src="regionsRel.js"></script> 
+<script type="text/javascript" src="regionsAbs.js"></script> 
+<script type="text/javascript" src="timedOnsets.js"></script>  -->
+
 <link rel="stylesheet" href="leaflet/leaflet.css" />
 <script src="leaflet/leaflet-src.js"></script>
 <style>
@@ -54,12 +60,6 @@
     const quadrant1 = [150, 300, 0, 150];
     const quadrant2 = [0, 150, 150, 300];
     const quadrant3 = [150, 300, 150, 300];
-
-    const quads = [[0, 150, 0, 150],
-    [150, 300, 0, 150],
-    [0, 150, 150, 300],
-    [150, 300, 150, 300]]
-
 
     //PARTS / SEQUENCES (MOSTLY VESTIGIAL):
     const bpms = [
@@ -118,7 +118,9 @@
 
 
     //ROIs:
-    var roiStart = {
+    //regionsRel class w/ constructor?
+    var regionsRel = [
+    {
         name: "start",
         coor: quadrant0,
         roiSynth: psynth,
@@ -142,9 +144,8 @@
             // sample
             this.partHelper.stop();
         }
-    };
-
-    var roi0 = {
+    },
+    {
         name: "roi0",
         coor: quadrant0,
         roiSynth: psynth,
@@ -168,9 +169,8 @@
             // sample
             this.partHelper.stop();
         }
-    };
-
-    var roi1 = {
+    },
+    {
         name: "roi1",
         coor: quadrant1,
         roiSynth: psynth,
@@ -194,9 +194,8 @@
             // sample
             this.partHelper.stop();
         }
-    };
-
-    var roi2 = {
+    },
+    {
         name: "roi2",
         coor: quadrant2,
         roiSynth: psynth,
@@ -220,9 +219,8 @@
             // sample
             this.partHelper.stop();
         }
-    };
-
-    var roi3 = {
+    },
+    {
         name: "roi3",
         coor: quadrant3,
         roiSynth: psynth,
@@ -246,11 +244,33 @@
             // sample
             this.partHelper.stop();
         }
-    };
+    }
+    ]
+    var cRegion = regionsRel[0]
+    var quadrants = [];    
+    regionsRel.forEach(function(entry) {
+        var sA = [];
+        sA = entry.coor;
+        quadrants.push(sA);
+        });
+    
+    //regionsAbs:
 
-    //temporary until getPos etc done...
-    regions = [roiStart, roi0, roi1, roi2, roi3];
-    var cRegion = regions[0]
+    //timedOnsets:
+    var timedOnsets = [
+        {
+            name:"start",
+            onsetTime:"0"
+        }
+    ]
+    var cTime = timedOnsets[0]
+    var onsetTimes = [];
+    timedOnsets.forEach(function(entry) {
+        var sA = [];
+        sA = entry.onsetTime;
+        onsetTimes.push(sA);
+        });
+
 
     //HTML INTERACTION:
     //START SOUND:
@@ -263,6 +283,7 @@
         fmOsc.volume.value = -5;
         beatLoop0.start(0);
         cRegion.enterRegion();
+        console.log(`Began in region: ${cRegion.name}`)
 
         // if ('geolocation' in navigator) {
         //     /* geolocation is available */
@@ -304,18 +325,24 @@
         console.log(`X: ${e.offsetX}`);
         console.log(`Y: ${e.offsetY}`);
         console.log(`pos: ${Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))}`);
-        console.log(`region: ${which_quadrant(e.offsetX, e.offsetY)}`)
+        console.log(`quadrant: ${which_quadrant(e.offsetX, e.offsetY)}`)
 
-        if (!arrayEquals(quads[which_quadrant(e.offsetX, e.offsetY)], cRegion.coor)) {
+        //logic for changing region
+        // plus 1 to offeset start
+        if (!arrayEquals(quadrants[which_quadrant(e.offsetX, e.offsetY) + 1], cRegion.coor)) {
             // console.log("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR");
             cRegion.leaveRegion()
-            console.log(`Left: ${cRegion.name}`)
-            // regions[which_quadrant(e.offsetX, e.offsetY) + 1].enterRegion()
-            cRegion = regions[which_quadrant(e.offsetX, e.offsetY) + 1]
+            console.log(`Left region: ${cRegion.name}`)
+            cRegion = regionsRel[which_quadrant(e.offsetX, e.offsetY) + 1]
             cRegion.enterRegion()
-            console.log(`Entered: ${cRegion.name}`)
+            console.log(`Entered region: ${cRegion.name}`)
             // console.log("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR");
         }
+
+        //logic for regionsAbs
+            //todo
+        //logic for interaction
+            //todo
 
         // const bpm = bpms[quadrant];
         //Tone.Transport.bpm.rampTo(bpm, 0.5)
