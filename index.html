@@ -256,14 +256,39 @@
     
     //regionsAbs:
 
-    //timedOnsets:
+    //timedOnsets (onsetTimes in s):
+    const timeCheckInterval = 1000; //ms
     var timedOnsets = [
         {
             name:"start",
-            onsetTime:"0"
+            onsetTime:1,
+            reachTime: function () {
+                console.log('START ONSET HAPPENED')
+            }
+        },
+        {
+            name:"first",
+            onsetTime:20,
+            reachTime: function () {
+                this.partHelper = playNotes(synth,
+                ['A4', 'F4', 'D4', 'A3',
+                'A4', 'F3', 'D5', 'A4'],
+                ["0", "0:0:2", "0:1:0", "0:1:2",
+                "0:2:0", "0:2:2", "0:3:0", "0:3:2"])
+                }
+        },
+        {
+            name:"second",
+            onsetTime:35,
+            reachTime: function () {
+                this.partHelper = playNotes(synth,
+                ['A4', 'A4', 'A4', 'A4',
+                'A4', 'A4', 'A4', 'A4'],
+                ["0", "0:0:2", "0:1:0", "0:1:2",
+                "0:2:0", "0:2:2", "0:3:0", "0:3:2"])
+                }
         }
     ]
-    var cTime = timedOnsets[0]
     var onsetTimes = [];
     timedOnsets.forEach(function(entry) {
         var sA = [];
@@ -353,4 +378,15 @@
         synth.detune.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
 
     });
+
+    //SCHEDULER for timedOnsets:
+    var scheduler = setInterval(scheduleCheck,timeCheckInterval);
+    function scheduleCheck() {
+        if (onsetTimes.includes(Math.round(Tone.now()))) {
+            let onsetIDX = onsetTimes.indexOf(Math.round(Tone.now()))
+            timedOnsets[onsetIDX].reachTime();
+            console.log(`${timedOnsets[onsetIDX].name} onset reached!`)
+        }
+    }
+
 </script>
