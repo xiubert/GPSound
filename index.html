@@ -1,5 +1,5 @@
-<!-- <script src="master.js"></script> -->
 <script type="text/javascript" src="Tone.js"></script>
+<!-- <script type="text/javascript" src="master.js"></script>  -->
 <!-- <script type="text/javascript" src="instruments.js"></script> 
 <script type="text/javascript" src="regionsRel.js"></script> 
 <script type="text/javascript" src="regionsAbs.js"></script> 
@@ -93,13 +93,25 @@
         if (in_quadrant(left, top, quadrant3)) { return 3; }
     }
 
-    function playNotes(synth, notes, times) {
+    function playNotesLoop(synth, notes, times) {
         const partHelper = new Tone.Part({
             "callback": ((time, note) => {
                 synth.triggerAttackRelease(note, "8n", time);
             }),
             "events": times.map((x, i) => [x, notes[i]]),
             "loop": true
+        });
+        partHelper.start();
+        return partHelper;
+    }
+
+    function playNotesOneShot(synth, notes, times) {
+        const partHelper = new Tone.Part({
+            "callback": ((time, note) => {
+                synth.triggerAttackRelease(note, "8n", time);
+            }),
+            "events": times.map((x, i) => [x, notes[i]]),
+            "loop": false
         });
         partHelper.start();
         return partHelper;
@@ -136,7 +148,7 @@
         partHelper: null,
         //velocity future
         enterRegion: function () {
-            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            this.partHelper = playNotesLoop(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
             //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
             fmOsc.frequency.value = 44;
         },
@@ -161,7 +173,7 @@
         partHelper: null,
         //velocity future
         enterRegion: function () {
-            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            this.partHelper = playNotesLoop(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
             //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
             fmOsc.frequency.value = 44;
         },
@@ -178,15 +190,15 @@
         beatLoop: beatLoop0,
         roiBeatInterval: "4n",
         synthPartNotes: [
-            'A4', 'F#5', 'D4', 'A5',
-            'A5', 'F#4', 'D5', 'A4'],
+            'A3', 'F#4', 'D3', 'A4',
+            'A4', 'F#3', 'D4', 'A3'],
         synthPartTimes: [
             "0", "0:0:2", "0:1:0", "0:1:2",
             "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
-            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            this.partHelper = playNotesLoop(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
             //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
             fmOsc.frequency.value = 88;
         },
@@ -203,15 +215,15 @@
         beatLoop: beatLoop0,
         roiBeatInterval: "8n",
         synthPartNotes: [
-            'A4', 'F#5', 'D4', 'A5',
-            'A5', 'F#4', 'D5', 'A4'],
+            'A4', 'D4', 'A4',
+            'A4', 'F#4', 'D4', 'A4'],
         synthPartTimes: [
-            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0", "0:1:0", "0:1:2",
             "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
-            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            this.partHelper = playNotesLoop(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
             //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
             fmOsc.frequency.value = 100;
         },
@@ -228,15 +240,15 @@
         beatLoop: beatLoop0,
         roiBeatInterval: "16n",
         synthPartNotes: [
-            'A4', 'F#5', 'D4', 'A5',
-            'A5', 'F#4', 'D5', 'A4'],
+            'D3', 'A4',
+            'A3', 'F#4', 'D4', 'A3'],
         synthPartTimes: [
-            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0:1:0", "0:1:2",
             "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
-            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            this.partHelper = playNotesLoop(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
             //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
             fmOsc.frequency.value = 120;
         },
@@ -270,7 +282,7 @@
             name:"first",
             onsetTime:20,
             reachTime: function () {
-                this.partHelper = playNotes(synth,
+                this.partHelper = playNotesOneShot(synth,
                 ['A4', 'F4', 'D4', 'A3',
                 'A4', 'F3', 'D5', 'A4'],
                 ["0", "0:0:2", "0:1:0", "0:1:2",
@@ -281,7 +293,7 @@
             name:"second",
             onsetTime:35,
             reachTime: function () {
-                this.partHelper = playNotes(synth,
+                this.partHelper = playNotesOneShot(synth,
                 ['A4', 'A4', 'A4', 'A4',
                 'A4', 'A4', 'A4', 'A4'],
                 ["0", "0:0:2", "0:1:0", "0:1:2",
