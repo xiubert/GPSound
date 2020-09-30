@@ -33,13 +33,13 @@
     const synth = new Tone.Synth().toDestination();
     const psynth = new Tone.PolySynth().toDestination();
     const fmOsc = new Tone.FMOscillator({
-		frequency: 200,
-		type: "sine",
-		modulationType: "triangle",
-		harmonicity: 0.2,
-		modulationIndex: 3
+        frequency: 200,
+        type: "sine",
+        modulationType: "triangle",
+        harmonicity: 0.2,
+        modulationIndex: 3
     }).toDestination();
-    
+
     //BEATS:
     const beat = new Tone.MembraneSynth().toDestination();
     //LOOPS:
@@ -54,6 +54,11 @@
     const quadrant1 = [150, 300, 0, 150];
     const quadrant2 = [0, 150, 150, 300];
     const quadrant3 = [150, 300, 150, 300];
+
+    const quads = [[0, 150, 0, 150],
+    [150, 300, 0, 150],
+    [0, 150, 150, 300],
+    [150, 300, 150, 300]]
 
 
     //PARTS / SEQUENCES (MOSTLY VESTIGIAL):
@@ -89,12 +94,22 @@
     }
 
     function playNotes(synth, notes, times) {
-        const partHelper = new Tone.Part({"callback":((time, note) => {
-        synth.triggerAttackRelease(note, "8n", time);}),
-        "events":times.map((x,i) => [x, notes[i]]),
-        "loop":true});
+        const partHelper = new Tone.Part({
+            "callback": ((time, note) => {
+                synth.triggerAttackRelease(note, "8n", time);
+            }),
+            "events": times.map((x, i) => [x, notes[i]]),
+            "loop": true
+        });
         partHelper.start();
         return partHelper;
+    }
+
+    function arrayEquals(a, b) {
+        return Array.isArray(a) &&
+            Array.isArray(b) &&
+            a.length === b.length &&
+            a.every((val, index) => val === b[index]);
     }
 
     function getPos() {
@@ -103,18 +118,45 @@
 
 
     //ROIs:
+    var roiStart = {
+        name: "start",
+        coor: quadrant0,
+        roiSynth: psynth,
+        roiBPM: 50, //this is global, interval is local to beat
+        beatLoop: beatLoop0,
+        roiBeatInterval: "2n",
+        synthPartNotes: [
+            'A4', 'F#5', 'D4', 'A5',
+            'A5', 'F#4', 'D5', 'A4'],
+        synthPartTimes: [
+            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
+        partHelper: null,
+        //velocity future
+        enterRegion: function () {
+            this.partHelper = playNotes(this.roiSynth, this.synthPartNotes, this.synthPartTimes);
+            //fmOsc.frequency.value = rescale(pos,5,200,minGridPos(),maxGridPos(maxX,maxY));
+            fmOsc.frequency.value = 44;
+        },
+        leaveRegion: function () {
+            // sample
+            this.partHelper.stop();
+        }
+    };
+
     var roi0 = {
-        coor:quadrant0,
-        roiSynth:psynth,
-        roiBPM:50, //this is global, interval is local to beat
-        beatLoop:beatLoop0,
-        roiBeatInterval:"2n",
-        synthPartNotes:[
-        'A4', 'F#5', 'D4','A5',
-        'A5', 'F#4', 'D5','A4'],
-        synthPartTimes:[
-        "0","0:0:2","0:1:0","0:1:2",
-        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        name: "roi0",
+        coor: quadrant0,
+        roiSynth: psynth,
+        roiBPM: 50, //this is global, interval is local to beat
+        beatLoop: beatLoop0,
+        roiBeatInterval: "2n",
+        synthPartNotes: [
+            'A4', 'F#5', 'D4', 'A5',
+            'A5', 'F#4', 'D5', 'A4'],
+        synthPartTimes: [
+            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
@@ -129,17 +171,18 @@
     };
 
     var roi1 = {
-        coor:quadrant1,
-        roiSynth:psynth,
-        roiBPM:100,
-        beatLoop:beatLoop0,
-        roiBeatInterval:"4n",
-        synthPartNotes:[
-        'A4', 'F#5', 'D4','A5',
-        'A5', 'F#4', 'D5','A4'],
-        synthPartTimes:[
-        "0","0:0:2","0:1:0","0:1:2",
-        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        name: "roi1",
+        coor: quadrant1,
+        roiSynth: psynth,
+        roiBPM: 100,
+        beatLoop: beatLoop0,
+        roiBeatInterval: "4n",
+        synthPartNotes: [
+            'A4', 'F#5', 'D4', 'A5',
+            'A5', 'F#4', 'D5', 'A4'],
+        synthPartTimes: [
+            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
@@ -154,17 +197,18 @@
     };
 
     var roi2 = {
-        coor:quadrant2,
-        roiSynth:psynth,
-        roiBPM:150,
-        beatLoop:beatLoop0,
-        roiBeatInterval:"8n",
-        synthPartNotes:[
-        'A4', 'F#5', 'D4','A5',
-        'A5', 'F#4', 'D5','A4'],
-        synthPartTimes:[
-        "0","0:0:2","0:1:0","0:1:2",
-        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        name: "roi2",
+        coor: quadrant2,
+        roiSynth: psynth,
+        roiBPM: 150,
+        beatLoop: beatLoop0,
+        roiBeatInterval: "8n",
+        synthPartNotes: [
+            'A4', 'F#5', 'D4', 'A5',
+            'A5', 'F#4', 'D5', 'A4'],
+        synthPartTimes: [
+            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
@@ -179,17 +223,18 @@
     };
 
     var roi3 = {
-        coor:quadrant3,
-        roiSynth:psynth,
-        roiBPM:200,
-        beatLoop:beatLoop0,
-        roiBeatInterval:"16n",
-        synthPartNotes:[
-        'A4', 'F#5', 'D4','A5',
-        'A5', 'F#4', 'D5','A4'],
-        synthPartTimes:[
-        "0","0:0:2","0:1:0","0:1:2",
-        "0:2:0","0:2:2","0:3:0","0:3:2"],
+        name: "roi3",
+        coor: quadrant3,
+        roiSynth: psynth,
+        roiBPM: 200,
+        beatLoop: beatLoop0,
+        roiBeatInterval: "16n",
+        synthPartNotes: [
+            'A4', 'F#5', 'D4', 'A5',
+            'A5', 'F#4', 'D5', 'A4'],
+        synthPartTimes: [
+            "0", "0:0:2", "0:1:0", "0:1:2",
+            "0:2:0", "0:2:2", "0:3:0", "0:3:2"],
         partHelper: null,
         //velocity future
         enterRegion: function () {
@@ -204,8 +249,8 @@
     };
 
     //temporary until getPos etc done...
-    regions = [roi0,roi1,roi2,roi3];
-
+    regions = [roiStart, roi0, roi1, roi2, roi3];
+    var cRegion = regions[0]
 
     //HTML INTERACTION:
     //START SOUND:
@@ -217,7 +262,7 @@
         fmOsc.start(0);
         fmOsc.volume.value = -5;
         beatLoop0.start(0);
-        roi0.enterRegion();
+        cRegion.enterRegion();
 
         // if ('geolocation' in navigator) {
         //     /* geolocation is available */
@@ -259,27 +304,26 @@
         console.log(`X: ${e.offsetX}`);
         console.log(`Y: ${e.offsetY}`);
         console.log(`pos: ${Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))}`);
-        var quadrant = which_quadrant(e.offsetX, e.offsetY);
+        console.log(`region: ${which_quadrant(e.offsetX, e.offsetY)}`)
+
+        if (!arrayEquals(quads[which_quadrant(e.offsetX, e.offsetY)], cRegion.coor)) {
+            // console.log("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR");
+            cRegion.leaveRegion()
+            console.log(`Left: ${cRegion.name}`)
+            // regions[which_quadrant(e.offsetX, e.offsetY) + 1].enterRegion()
+            cRegion = regions[which_quadrant(e.offsetX, e.offsetY) + 1]
+            cRegion.enterRegion()
+            console.log(`Entered: ${cRegion.name}`)
+            // console.log("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR");
+        }
+
         // const bpm = bpms[quadrant];
         //Tone.Transport.bpm.rampTo(bpm, 0.5)
         //or beatLoop0.interval = "4n"; //8n, 16n, 24n, etc if idependent of BPM
         // const loopRate = loopRates[quadrant];
         // beatLoop0.interval = loopRate;
 
-        // NEEDS FIXING
-        const cquad = quadrant;  //SHOULD BE OUTSIDE OF THIS FCN //SHOULD BE PART OF GETPOS
-        if (cquad!=quadrant) {
-            var croi = regions[cquad];
-            croi.leaveRegion();
-            var roi = regions[quadrant];
-            roi.enterRegion();
-        }
-
-
-        //REGION CALL:
-        // var roi = regions[quadrant];
-        // roi.enterRegion();
-
         synth.detune.value = Math.sqrt(Math.pow(e.offsetX, 2) + Math.pow(e.offsetY, 2))
+
     });
 </script>
