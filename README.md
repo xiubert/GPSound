@@ -1,2 +1,2 @@
-# xiubert.github.io
+# GPSound
 gpsound install project
