@@ -1,2 +1,4 @@
 #visual studio code folders
 .vscode/
+node_modules/
+package-lock.json
