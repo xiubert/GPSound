@@ -4,7 +4,6 @@ const LeafletDrawingMap = () => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const drawnItemsRef = useRef(null);
-    const drawControlRef = useRef(null);
     const [isMapLoaded, setIsMapLoaded] = useState(false);
     const [drawnShapes, setDrawnShapes] = useState([]);
 
