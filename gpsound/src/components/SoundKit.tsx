@@ -1,5 +1,5 @@
 // SoundKit.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import * as Tone from 'tone';
 
 interface SoundKitProps {
@@ -10,7 +10,9 @@ interface SoundKitProps {
 }
 
 const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+//   const [isPlaying, setIsPlaying] = useState(false);
+
+  const [_, setIsPlaying] = useState(false);
   
   const soundOptions = [
     { id: 'fm-synth', name: 'FM Synth', note: 'C4' },
