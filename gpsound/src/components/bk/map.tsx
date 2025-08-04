@@ -1,5 +1,3 @@
-i'm trying to keep it simple:
-
 import LeafletDrawingMap_npm from './components/LeafletDrawingMap_npm';
 
 function App() {
@@ -39,7 +37,7 @@ const LeafletDrawingMap_npm = () => {
 
     // Initialize the draw control
     const drawControl = new L.Control.Draw({
-    //   position: 'topright',
+      //   position: 'topright',
       edit: {
         featureGroup: drawnItems,
       }
@@ -50,15 +48,15 @@ const LeafletDrawingMap_npm = () => {
     // map.on('draw:created', function (event: any) {
     //   const layer = event.layer;
     //   const type = event.layerType;
-      
+
     //   drawnItems.addLayer(layer);
-      
+
     //   const shapeInfo = {
     //     id: Date.now(),
     //     type: type,
     //     coordinates: getCoordinates(layer, type)
     //   };
-      
+
     //   setDrawnShapes(prev => [...prev, shapeInfo]);
     // });
     // Listen for draw:created event to add rectangles to the map
@@ -88,33 +86,33 @@ const LeafletDrawingMap_npm = () => {
     };
   }, []);
 
-//   const getCoordinates = function (layer, type) {
-//     switch (type) {
-//       case 'marker':
-//         const markerLatLng = layer.getLatLng();
-//         return [markerLatLng.lat, markerLatLng.lng];
-//       case 'circle':
-//         const circleLatLng = layer.getLatLng();
-//         return {
-//           center: [circleLatLng.lat, circleLatLng.lng],
-//           radius: layer.getRadius()
-//         };
-//       case 'rectangle':
-//       case 'polygon':
-//         return layer.getLatLngs()[0].map(latlng => [latlng.lat, latlng.lng]);
-//       case 'polyline':
-//         return layer.getLatLngs().map(latlng => [latlng.lat, latlng.lng]);
-//       default:
-//         return null;
-//     }
-//   };
+  //   const getCoordinates = function (layer, type) {
+  //     switch (type) {
+  //       case 'marker':
+  //         const markerLatLng = layer.getLatLng();
+  //         return [markerLatLng.lat, markerLatLng.lng];
+  //       case 'circle':
+  //         const circleLatLng = layer.getLatLng();
+  //         return {
+  //           center: [circleLatLng.lat, circleLatLng.lng],
+  //           radius: layer.getRadius()
+  //         };
+  //       case 'rectangle':
+  //       case 'polygon':
+  //         return layer.getLatLngs()[0].map(latlng => [latlng.lat, latlng.lng]);
+  //       case 'polyline':
+  //         return layer.getLatLngs().map(latlng => [latlng.lat, latlng.lng]);
+  //       default:
+  //         return null;
+  //     }
+  //   };
 
-//   const clearAllShapes = () => {
-//     if (drawnItemsRef.current) {
-//       drawnItemsRef.current.clearLayers();
-//       setDrawnShapes([]);
-//     }
-//   };
+  //   const clearAllShapes = () => {
+  //     if (drawnItemsRef.current) {
+  //       drawnItemsRef.current.clearLayers();
+  //       setDrawnShapes([]);
+  //     }
+  //   };
 
   return (
     <div style={{ height: '100vh', width: '100vw' }}>
@@ -124,5 +122,3 @@ const LeafletDrawingMap_npm = () => {
 };
 
 export default LeafletDrawingMap_npm;
-
-but i just get a blank page?
