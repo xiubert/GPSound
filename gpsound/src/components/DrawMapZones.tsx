@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
-// npm install -D @types/leaflet @types/leaflet-draw  # if using TypeScript
+import SoundKit from './SoundKit'; // Import the separate component
 
 // Fix for default markers
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -15,38 +15,44 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-
-type DrawnShape = {
+interface DrawnShape {
     id: number;
     type: string;
     coordinates: any;
-};
+    soundType: string | null;
+}
+
+interface SoundDropdownState {
+    show: boolean;
+    position: { x: number; y: number };
+    shapeId: number | null;
+}
 
 const DrawMapZones = () => {
-    const mapRef = useRef<HTMLDivElement | null>(null);
+    const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
     const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
+    const [soundDropdown, setSoundDropdown] = useState<SoundDropdownState>({
+        show: false,
+        position: { x: 0, y: 0 },
+        shapeId: null
+    });
 
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
 
-        // Provide map anchors
         var gulestan: L.LatLngTuple = [42.308606, -83.747036];
 
-        // Initialize the map
         const map = L.map(mapRef.current).setView(gulestan, 13);
 
-        // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Create a feature group for drawn items
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
 
-        // Initialize the draw control
         const drawControl = new L.Control.Draw({
             edit: {
                 featureGroup: drawnItems,
@@ -54,24 +60,33 @@ const DrawMapZones = () => {
         });
         map.addControl(drawControl);
 
-        // Store references (you need these!)
         mapInstanceRef.current = map;
         drawnItemsRef.current = drawnItems;
 
-        // Event handlers
-        // L.Draw.Event.CREATED,
         map.on(L.Draw.Event.CREATED, function (event: any) {
             const layer = event.layer;
             const type = event.layerType;
 
             drawnItems.addLayer(layer);
-            // Add to state for tracking
+
             const shapeInfo: DrawnShape = {
                 id: Date.now(),
                 type: type,
-                coordinates: getCoordinates(layer, type)
+                coordinates: getCoordinates(layer, type),
+                soundType: null
             };
-            setDrawnShapes((prev: DrawnShape[]) => [...prev, shapeInfo]);
+
+            setDrawnShapes(prev => [...prev, shapeInfo]);
+
+            // Add click handler to the new shape
+            layer.on('click', function (e: any) {
+                const containerPoint = map.mouseEventToContainerPoint(e.originalEvent);
+                setSoundDropdown({
+                    show: true,
+                    position: { x: containerPoint.x, y: containerPoint.y },
+                    shapeId: shapeInfo.id
+                });
+            });
 
             console.log('Shape drawn. shapeInfo:', shapeInfo);
         });
@@ -79,20 +94,18 @@ const DrawMapZones = () => {
         map.on(L.Draw.Event.DELETED, function (e: any) {
             var deletedLayers = e.layers;
             deletedLayers.eachLayer(function (layer: any) {
-                // Perform actions with each deleted layer, e.g.,
                 console.log('Deleted layer:', layer);
-                // Remove layer from a FeatureGroup if needed
-                // editableLayers.removeLayer(layer); 
             });
         });
 
-        // map.on('draw:edited', function (event: any) {
-        //   const layer = event.layer
-        // //   setDrawnShapes([]);
-        //   console.log("SHAPE EDITED", layer)
-        // });
+        // Close dropdown when clicking on map
+        map.on('click', function (e: any) {
+            // Only close if not clicking on a shape
+            if (!e.originalEvent.target.closest('.leaflet-interactive')) {
+                setSoundDropdown(prev => ({ ...prev, show: false }));
+            }
+        });
 
-        // Cleanup
         return () => {
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.remove();
@@ -101,8 +114,7 @@ const DrawMapZones = () => {
         };
     }, []);
 
-    //   funcs
-    const getCoordinates = function (layer: any, type: string) {
+    const getCoordinates = function (layer: any, type: any) {
         switch (type) {
             case 'marker':
                 const markerLatLng = layer.getLatLng();
@@ -115,9 +127,9 @@ const DrawMapZones = () => {
                 };
             case 'rectangle':
             case 'polygon':
-                return layer.getLatLngs()[0].map((latlng: L.LatLng) => [latlng.lat, latlng.lng]);
+                return layer.getLatLngs()[0].map((latlng: any) => [latlng.lat, latlng.lng]);
             case 'polyline':
-                return layer.getLatLngs().map((latlng: L.LatLng) => [latlng.lat, latlng.lng]);
+                return layer.getLatLngs().map((latlng: any) => [latlng.lat, latlng.lng]);
             case 'circlemarker':
                 const cmLatLng = layer.getLatLng();
                 return {
@@ -131,22 +143,35 @@ const DrawMapZones = () => {
 
     const clearAllShapes = () => {
         if (drawnItemsRef.current) {
-            (drawnItemsRef.current as L.FeatureGroup).clearLayers();
+            drawnItemsRef.current.clearLayers();
             setDrawnShapes([]);
+            setSoundDropdown(prev => ({ ...prev, show: false }));
         }
     };
 
     const logAllShapes = () => {
-        // if (drawnItemsRef.current) {
-        //     drawnItemsRef.current.clearLayers();
-        //     setDrawnShapes([]);
-        // }
-        console.log(drawnShapes)
+        console.log(drawnShapes);
+    };
+
+    const handleSoundSelect = (soundType: string) => {
+        setDrawnShapes(prev =>
+            prev.map(shape =>
+                shape.id === soundDropdown.shapeId
+                    ? { ...shape, soundType }
+                    : shape
+            )
+        );
+        console.log(`Assigned sound "${soundType}" to shape ${soundDropdown.shapeId}`);
+    };
+
+    const closeSoundDropdown = () => {
+        setSoundDropdown(prev => ({ ...prev, show: false }));
     };
 
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
             <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
+
             <button
                 onClick={clearAllShapes}
                 style={{
@@ -163,11 +188,12 @@ const DrawMapZones = () => {
                     zIndex: 1000,
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
-                onMouseOver={(e) => ((e.target as HTMLButtonElement).style.backgroundColor = '#dc2626')}
-                onMouseOut={(e) => ((e.target as HTMLButtonElement).style.backgroundColor = '#ef4444')}
+                onMouseOver={(e) => (e.target as HTMLElement).style.backgroundColor = '#dc2626'}
+                onMouseOut={(e) => (e.target as HTMLElement).style.backgroundColor = '#ef4444'}
             >
                 Clear All Shapes
             </button>
+
             <button
                 onClick={logAllShapes}
                 style={{
@@ -187,6 +213,13 @@ const DrawMapZones = () => {
             >
                 Log All Shapes
             </button>
+
+            <SoundKit
+                show={soundDropdown.show}
+                position={soundDropdown.position}
+                onSoundSelect={handleSoundSelect}
+                onClose={closeSoundDropdown}
+            />
         </div>
     );
 };
