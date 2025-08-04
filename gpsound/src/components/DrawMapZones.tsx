@@ -54,6 +54,9 @@ const DrawMapZones = () => {
         map.addLayer(drawnItems);
 
         const drawControl = new L.Control.Draw({
+            draw: {
+                polyline: false,
+            },
             edit: {
                 featureGroup: drawnItems,
             }
