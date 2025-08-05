@@ -61,26 +61,29 @@ const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => 
         setIsPlaying(false);
       }, 1000);
     } else {
-      // CONSIDER INSTEAD: Tone.Part w/ Part constructor helper
-      // Loop functionality using Tone.Loop
-      const soundLoop = new Tone.Loop((time) => {
-        synth.triggerAttackRelease(note, "8n", time);
-      }, "2n"); // triggered every half note?
-      
-      // Set iterations if it's a number
-      if (typeof loop === 'number') {
-        soundLoop.iterations = loop;
+      // Loop functionality
+      const soundPart = new Tone.Part((time, noteValue) => {
+        synth.triggerAttackRelease(noteValue, "8n", time);
+      }, [
+        ["0:0:2", note] // Schedule the note at time 0
+      ]);
+
+      // Configure looping
+      if (loop === true) {
+        soundPart.loop = true;
+        soundPart.loopEnd = "1n"; // Duration of one loop iteration (1 whole note)
+      } else if (typeof loop === 'number' && loop > 1) {
+        soundPart.loop = loop;
+        soundPart.loopEnd = "1n";
       }
       
-      soundLoop.start(0);
-      Tone.Transport.start();
+      soundPart.start();
       
       // Clean up after delay (longer for loops)
       const cleanupTime = loop === true ? 5000 : (typeof loop === 'number' ? loop * 1000 + 1000 : 2000);
       setTimeout(() => {
-        soundLoop.stop();
-        soundLoop.dispose();
-        Tone.Transport.stop();
+        soundPart.stop();
+        soundPart.dispose();
         synth.dispose();
         setIsPlaying(false);
       }, cleanupTime);
