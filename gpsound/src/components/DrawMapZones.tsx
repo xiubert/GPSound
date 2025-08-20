@@ -44,16 +44,29 @@ const DrawMapZones = () => {
 
         var gulestan: L.LatLngTuple = [42.308606, -83.747036];
 
-        const map = L.map(mapRef.current).setView(gulestan, 13);
+        const map = L.map(mapRef.current, {
+            maxZoom: 23
+        }).setView(gulestan, 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 23,
+            maxNativeZoom: 19
+        }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 23,
+            maxNativeZoom: 19
         }).addTo(map);
 
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
 
         const drawControl = new L.Control.Draw({
+            draw: {
+                polyline: false,
+            },
             edit: {
                 featureGroup: drawnItems,
             }
@@ -128,8 +141,6 @@ const DrawMapZones = () => {
             case 'rectangle':
             case 'polygon':
                 return layer.getLatLngs()[0].map((latlng: any) => [latlng.lat, latlng.lng]);
-            case 'polyline':
-                return layer.getLatLngs().map((latlng: any) => [latlng.lat, latlng.lng]);
             case 'circlemarker':
                 const cmLatLng = layer.getLatLng();
                 return {
