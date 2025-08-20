@@ -1,8 +1,0 @@
-Tempo: Tone.transport.rampTo(bpm,timeToBPM)
-
-master Volume: Tone.Master.volume.rampTo(0,0)
-
-instrument volume:
-
-synth.volume.value = 20s
-synth.volume.rampTo(20,2)
