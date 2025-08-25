@@ -160,8 +160,79 @@ const DrawMapZones = () => {
         }
     };
 
-    const logAllShapes = () => {
-        console.log(drawnShapes);
+
+    // Export drawn shapes to JSON file
+    const exportShapes = () => {
+        const dataStr = JSON.stringify(drawnShapes, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'drawnShapes.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // Helper to draw shapes on the map from imported data
+    const drawShapesOnMap = (shapes: DrawnShape[]) => {
+        if (!drawnItemsRef.current) return;
+        drawnItemsRef.current.clearLayers();
+        shapes.forEach(shape => {
+            let layer: L.Layer | null = null;
+            switch (shape.type) {
+                case 'marker':
+                    layer = L.marker(shape.coordinates);
+                    break;
+                case 'circle':
+                    layer = L.circle(shape.coordinates.center, { radius: shape.coordinates.radius });
+                    break;
+                case 'rectangle':
+                    layer = L.rectangle(shape.coordinates);
+                    break;
+                case 'polygon':
+                    layer = L.polygon(shape.coordinates);
+                    break;
+                case 'circlemarker':
+                    layer = L.circleMarker(shape.coordinates.center, { radius: shape.coordinates.radius });
+                    break;
+                default:
+                    break;
+            }
+            if (layer && drawnItemsRef.current) {
+                drawnItemsRef.current.addLayer(layer);
+                // Add click handler for sound dropdown
+                layer.on('click', function (e: any) {
+                    if (!mapInstanceRef.current) return;
+                    const containerPoint = mapInstanceRef.current.mouseEventToContainerPoint(e.originalEvent);
+                    setSoundDropdown({
+                        show: true,
+                        position: { x: containerPoint.x, y: containerPoint.y },
+                        shapeId: shape.id
+                    });
+                });
+            }
+        });
+    };
+
+    // Import shapes from JSON file
+    const importShapes = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedShapes = JSON.parse(e.target?.result as string);
+                if (Array.isArray(importedShapes)) {
+                    setDrawnShapes(importedShapes);
+                    drawShapesOnMap(importedShapes);
+                }
+            } catch (err) {
+                alert('Invalid JSON file');
+            }
+        };
+        reader.readAsText(file);
     };
 
     const handleSoundSelect = (soundType: string) => {
@@ -206,12 +277,12 @@ const DrawMapZones = () => {
             </button>
 
             <button
-                onClick={logAllShapes}
+                onClick={exportShapes}
                 style={{
                     position: 'absolute',
                     top: '540px',
                     left: '10px',
-                    backgroundColor: '#4fef44ff',
+                    backgroundColor: '#3b82f6',
                     color: 'white',
                     padding: '8px 12px',
                     border: 'none',
@@ -222,8 +293,32 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Log All Shapes
+                Export Shapes
             </button>
+
+            <label htmlFor="importShapes" style={{
+                position: 'absolute',
+                top: '580px',
+                left: '10px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                padding: '8px 12px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                zIndex: 1000,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}>
+                Import Shapes
+                <input
+                    id="importShapes"
+                    type="file"
+                    accept="application/json"
+                    style={{ display: 'none' }}
+                    onChange={importShapes}
+                />
+            </label>
 
             <SoundKit
                 show={soundDropdown.show}
