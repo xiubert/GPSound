@@ -7,13 +7,14 @@ interface SoundKitProps {
   position: { x: number; y: number };
   onSoundSelect: (soundType: string) => void;
   onClose: () => void;
+  selectedSoundType?: string | null;
 }
 
-const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => {
-//   const [isPlaying, setIsPlaying] = useState(false);
+const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }: SoundKitProps) => {
+  //   const [isPlaying, setIsPlaying] = useState(false);
 
   const [_, setIsPlaying] = useState(false);
-  
+
   const soundOptions = [
     { id: 'fm-synth', name: 'FM Synth', note: 'C4' },
     { id: 'am-synth', name: 'AM Synth', note: 'G4' },
@@ -25,7 +26,7 @@ const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => 
   const playSound = async (soundType: string, note: string) => {
     await Tone.start(); // Ensure audio context is started
     setIsPlaying(true);
-    
+
     let synth;
     switch (soundType) {
       case 'fm-synth':
@@ -52,9 +53,9 @@ const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => 
       default:
         synth = new Tone.Synth().toDestination();
     }
-    
+
     synth.triggerAttackRelease(note, '8n');
-    
+
     // Clean up synth after a delay
     setTimeout(() => {
       synth.dispose();
@@ -86,8 +87,8 @@ const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => 
         fontFamily: 'Arial, sans-serif'
       }}
     >
-      <div style={{ 
-        padding: '8px 12px', 
+      <div style={{
+        padding: '8px 12px',
         borderBottom: '1px solid #ddd',
         fontWeight: 'bold',
         fontSize: '14px',
@@ -110,7 +111,8 @@ const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => 
             fontSize: '14px',
             color: '#333',
             transition: 'background-color 0.2s',
-            display: 'block'
+            display: 'block',
+            position: 'relative'
           }}
           onMouseOver={(e) => {
             (e.target as HTMLElement).style.backgroundColor = '#e3f2fd';
@@ -122,6 +124,15 @@ const SoundKit = ({ show, position, onSoundSelect, onClose }: SoundKitProps) => 
           }}
         >
           {sound.name}
+          {selectedSoundType === sound.id && (
+            <span style={{
+              position: 'absolute',
+              right: '12px',
+              color: '#10b981',
+              fontWeight: 'bold',
+              fontSize: '16px'
+            }}>✔</span>
+          )}
         </button>
       ))}
       <div style={{ borderTop: '1px solid #ddd', padding: '8px' }}>

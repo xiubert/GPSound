@@ -250,6 +250,10 @@ const DrawMapZones = () => {
         setSoundDropdown(prev => ({ ...prev, show: false }));
     };
 
+    // Find the selected sound type for the currently selected shape
+    const selectedShape = drawnShapes.find(shape => shape.id === soundDropdown.shapeId);
+    const selectedSoundType = selectedShape?.soundType || null;
+
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
             <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
@@ -325,6 +329,7 @@ const DrawMapZones = () => {
                 position={soundDropdown.position}
                 onSoundSelect={handleSoundSelect}
                 onClose={closeSoundDropdown}
+                selectedSoundType={selectedSoundType}
             />
         </div>
     );
