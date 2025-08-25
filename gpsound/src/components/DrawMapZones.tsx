@@ -161,9 +161,22 @@ const DrawMapZones = () => {
     };
 
 
-    // Export drawn shapes to JSON file
+    // Export drawn shapes and map view to JSON file
     const exportShapes = () => {
-        const dataStr = JSON.stringify(drawnShapes, null, 2);
+        let mapView = null;
+        if (mapInstanceRef.current) {
+            const center = mapInstanceRef.current.getCenter();
+            const zoom = mapInstanceRef.current.getZoom();
+            mapView = {
+                center: [center.lat, center.lng],
+                zoom
+            };
+        }
+        const exportData = {
+            shapes: drawnShapes,
+            mapView
+        };
+        const dataStr = JSON.stringify(exportData, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -216,17 +229,34 @@ const DrawMapZones = () => {
         });
     };
 
-    // Import shapes from JSON file
+    // Import shapes and map view from JSON file
     const importShapes = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const importedShapes = JSON.parse(e.target?.result as string);
-                if (Array.isArray(importedShapes)) {
-                    setDrawnShapes(importedShapes);
-                    drawShapesOnMap(importedShapes);
+                const importedData = JSON.parse(e.target?.result as string);
+                if (importedData && Array.isArray(importedData.shapes)) {
+                    setDrawnShapes(importedData.shapes);
+                    drawShapesOnMap(importedData.shapes);
+                    // Restore map view if present
+                    if (importedData.mapView && mapInstanceRef.current) {
+                        const { center, zoom } = importedData.mapView;
+                        if (
+                            Array.isArray(center) &&
+                            center.length === 2 &&
+                            typeof center[0] === 'number' &&
+                            typeof center[1] === 'number' &&
+                            typeof zoom === 'number'
+                        ) {
+                            mapInstanceRef.current.setView([center[0], center[1]], zoom);
+                        }
+                    }
+                } else if (Array.isArray(importedData)) {
+                    // Fallback for old format
+                    setDrawnShapes(importedData);
+                    drawShapesOnMap(importedData);
                 }
             } catch (err) {
                 alert('Invalid JSON file');
