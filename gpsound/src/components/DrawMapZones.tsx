@@ -152,7 +152,7 @@ const DrawMapZones = () => {
         }
     };
 
-    const clearAllShapes = () => {
+    const clearArrangement = () => {
         if (drawnItemsRef.current) {
             drawnItemsRef.current.clearLayers();
             setDrawnShapes([]);
@@ -161,8 +161,8 @@ const DrawMapZones = () => {
     };
 
 
-    // Export drawn shapes and map view to JSON file
-    const exportShapes = () => {
+    // Export arrangement (shapes and map view) to JSON file
+    const exportArrangement = () => {
         let mapView = null;
         if (mapInstanceRef.current) {
             const center = mapInstanceRef.current.getCenter();
@@ -181,7 +181,7 @@ const DrawMapZones = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'drawnShapes.json';
+        a.download = 'arrangement.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -229,8 +229,8 @@ const DrawMapZones = () => {
         });
     };
 
-    // Import shapes and map view from JSON file
-    const importShapes = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Import arrangement (shapes and map view) from JSON file
+    const importArrangement = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
@@ -285,7 +285,7 @@ const DrawMapZones = () => {
             <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
 
             <button
-                onClick={clearAllShapes}
+                onClick={clearArrangement}
                 style={{
                     position: 'absolute',
                     top: '500px',
@@ -303,11 +303,11 @@ const DrawMapZones = () => {
                 onMouseOver={(e) => (e.target as HTMLElement).style.backgroundColor = '#dc2626'}
                 onMouseOut={(e) => (e.target as HTMLElement).style.backgroundColor = '#ef4444'}
             >
-                Clear All Shapes
+                Clear Arrangement
             </button>
 
             <button
-                onClick={exportShapes}
+                onClick={exportArrangement}
                 style={{
                     position: 'absolute',
                     top: '540px',
@@ -323,10 +323,10 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Export Shapes
+                Export Arrangement
             </button>
 
-            <label htmlFor="importShapes" style={{
+            <label htmlFor="importArrangement" style={{
                 position: 'absolute',
                 top: '580px',
                 left: '10px',
@@ -340,13 +340,13 @@ const DrawMapZones = () => {
                 zIndex: 1000,
                 boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
             }}>
-                Import Shapes
+                Import Arrangement
                 <input
-                    id="importShapes"
+                    id="importArrangement"
                     type="file"
                     accept="application/json"
                     style={{ display: 'none' }}
-                    onChange={importShapes}
+                    onChange={importArrangement}
                 />
             </label>
 
