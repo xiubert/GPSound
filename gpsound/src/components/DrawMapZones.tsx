@@ -152,7 +152,7 @@ const DrawMapZones = () => {
         }
     };
 
-    const clearAllShapes = () => {
+    const clearArrangement = () => {
         if (drawnItemsRef.current) {
             drawnItemsRef.current.clearLayers();
             setDrawnShapes([]);
@@ -160,8 +160,109 @@ const DrawMapZones = () => {
         }
     };
 
-    const logAllShapes = () => {
-        console.log(drawnShapes);
+
+    // Export arrangement (shapes and map view) to JSON file
+    const exportArrangement = () => {
+        let mapView = null;
+        if (mapInstanceRef.current) {
+            const center = mapInstanceRef.current.getCenter();
+            const zoom = mapInstanceRef.current.getZoom();
+            mapView = {
+                center: [center.lat, center.lng],
+                zoom
+            };
+        }
+        const exportData = {
+            shapes: drawnShapes,
+            mapView
+        };
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'arrangement.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // Helper to draw shapes on the map from imported data
+    const drawShapesOnMap = (shapes: DrawnShape[]) => {
+        if (!drawnItemsRef.current) return;
+        drawnItemsRef.current.clearLayers();
+        shapes.forEach(shape => {
+            let layer: L.Layer | null = null;
+            switch (shape.type) {
+                case 'marker':
+                    layer = L.marker(shape.coordinates);
+                    break;
+                case 'circle':
+                    layer = L.circle(shape.coordinates.center, { radius: shape.coordinates.radius });
+                    break;
+                case 'rectangle':
+                    layer = L.rectangle(shape.coordinates);
+                    break;
+                case 'polygon':
+                    layer = L.polygon(shape.coordinates);
+                    break;
+                case 'circlemarker':
+                    layer = L.circleMarker(shape.coordinates.center, { radius: shape.coordinates.radius });
+                    break;
+                default:
+                    break;
+            }
+            if (layer && drawnItemsRef.current) {
+                drawnItemsRef.current.addLayer(layer);
+                // Add click handler for sound dropdown
+                layer.on('click', function (e: any) {
+                    if (!mapInstanceRef.current) return;
+                    const containerPoint = mapInstanceRef.current.mouseEventToContainerPoint(e.originalEvent);
+                    setSoundDropdown({
+                        show: true,
+                        position: { x: containerPoint.x, y: containerPoint.y },
+                        shapeId: shape.id
+                    });
+                });
+            }
+        });
+    };
+
+    // Import arrangement (shapes and map view) from JSON file
+    const importArrangement = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target?.result as string);
+                if (importedData && Array.isArray(importedData.shapes)) {
+                    setDrawnShapes(importedData.shapes);
+                    drawShapesOnMap(importedData.shapes);
+                    // Restore map view if present
+                    if (importedData.mapView && mapInstanceRef.current) {
+                        const { center, zoom } = importedData.mapView;
+                        if (
+                            Array.isArray(center) &&
+                            center.length === 2 &&
+                            typeof center[0] === 'number' &&
+                            typeof center[1] === 'number' &&
+                            typeof zoom === 'number'
+                        ) {
+                            mapInstanceRef.current.setView([center[0], center[1]], zoom);
+                        }
+                    }
+                } else if (Array.isArray(importedData)) {
+                    // Fallback for old format
+                    setDrawnShapes(importedData);
+                    drawShapesOnMap(importedData);
+                }
+            } catch (err) {
+                alert('Invalid JSON file');
+            }
+        };
+        reader.readAsText(file);
     };
 
     const handleSoundSelect = (soundType: string) => {
@@ -184,7 +285,7 @@ const DrawMapZones = () => {
             <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
 
             <button
-                onClick={clearAllShapes}
+                onClick={clearArrangement}
                 style={{
                     position: 'absolute',
                     top: '500px',
@@ -202,16 +303,16 @@ const DrawMapZones = () => {
                 onMouseOver={(e) => (e.target as HTMLElement).style.backgroundColor = '#dc2626'}
                 onMouseOut={(e) => (e.target as HTMLElement).style.backgroundColor = '#ef4444'}
             >
-                Clear All Shapes
+                Clear Arrangement
             </button>
 
             <button
-                onClick={logAllShapes}
+                onClick={exportArrangement}
                 style={{
                     position: 'absolute',
                     top: '540px',
                     left: '10px',
-                    backgroundColor: '#4fef44ff',
+                    backgroundColor: '#3b82f6',
                     color: 'white',
                     padding: '8px 12px',
                     border: 'none',
@@ -222,8 +323,32 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Log All Shapes
+                Export Arrangement
             </button>
+
+            <label htmlFor="importArrangement" style={{
+                position: 'absolute',
+                top: '580px',
+                left: '10px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                padding: '8px 12px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                zIndex: 1000,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}>
+                Import Arrangement
+                <input
+                    id="importArrangement"
+                    type="file"
+                    accept="application/json"
+                    style={{ display: 'none' }}
+                    onChange={importArrangement}
+                />
+            </label>
 
             <SoundKit
                 show={soundDropdown.show}
