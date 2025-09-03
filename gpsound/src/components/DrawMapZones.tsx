@@ -249,7 +249,7 @@ const DrawMapZones = () => {
         const refLng = -83.747036;
 
         // 
-        let {point, circle, polygon, box, PlanarSet} = Flatten;
+        let {point, circle, Polygon, PlanarSet} = Flatten;
         let markers = [];
         let planarSet = new PlanarSet();
 
@@ -294,18 +294,45 @@ const DrawMapZones = () => {
                     break;
 
                 case 'rectangle':
-                    // layer = L.rectangle(shape.coordinates);
-                    console.log("rect")
+                    const rectcoor = []
+                    shape.coordinates.forEach(pt => {
+                            const pointConv = convertGPSToMeters(
+                                pt[0], 
+                                pt[1], 
+                                refLat, 
+                                refLng
+                            )
+                            rectcoor.push(point(pointConv.x, pointConv.y))
+                    })
+                    let rect = new Polygon()
+                    rect.addFace(rectcoor)
+                    rect.id = shape.id
+                    rect.soundType = shape.soundType
+                    planarSet.add(rect);
                     break;
 
                 case 'polygon':
-                    // layer = L.polygon(shape.coordinates);
                     console.log("poly")
+                    const polycoor = []
+                        shape.coordinates.forEach(pt => {
+                            const pointConv = convertGPSToMeters(
+                                pt[0], 
+                                pt[1], 
+                                refLat, 
+                                refLng
+                            )
+                            polycoor.push(point(pointConv.x, pointConv.y))
+                    })
+                    let polygon = new Polygon()
+                    polygon.addFace(polycoor)
+                    polygon.id = shape.id
+                    polygon.soundType = shape.soundType
+                    planarSet.add(polygon);
+
                     break;
 
                 case 'circlemarker':
-                    // layer = L.circleMarker(shape.coordinates.center, { radius: shape.coordinates.radius });
-                    console.log("cmaker")
+                    console.log("cmaker not implemented")
                     break;
                     
                 default:
