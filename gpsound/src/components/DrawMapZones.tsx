@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
+import Flatten from 'flatten-js';
 import SoundKit from './SoundKit'; // Import the separate component
 
 // Fix for default markers
@@ -229,6 +230,114 @@ const DrawMapZones = () => {
         });
     };
 
+    // Convert GPS to meters relative to a reference point
+    const convertGPSToMeters = (lat, lng, refLat, refLng) => {
+        const R = 6371000; // Earth's radius in meters
+        const dLat = (lat - refLat) * Math.PI / 180;
+        const dLng = (lng - refLng) * Math.PI / 180;
+        
+        const x = dLng * Math.cos(refLat * Math.PI / 180) * R;
+        const y = dLat * R;
+        
+        return { x, y };
+    };
+
+    const getCollisions = (shapes: DrawnShape[]) => {
+        if (drawnShapes.length === 0) return;
+        // Use gulestan coordinates as reference
+        const refLat = 42.308606;
+        const refLng = -83.747036;
+
+        // 
+        let {point, circle, polygon, box, PlanarSet} = Flatten;
+        let markers = [];
+        let planarSet = new PlanarSet();
+
+        // TEST COLLISIONS
+        let c = circle(point(200, 110), 50);
+        let c2 = circle(point(250, 160), 80);
+        const shapetest = [c, c2];
+        let psTest = new PlanarSet();
+        let qpoint = point(255, 180);
+        let qpoint2 = point(225, 110);
+        let qpoint3 = point(1,1);
+        shapetest.forEach((shape) => {
+            psTest.add(shape);
+        });
+        console.log("test qpoint")
+        console.log(psTest.hit(qpoint))
+        console.log("test qpoint2")
+        console.log(psTest.hit(qpoint2))
+        console.log("test qpoint3")
+        console.log(psTest.hit(qpoint3))
+
+        console.log("Checking collisions for", shapes.length, "shapes");
+        shapes.forEach(shape => {
+            switch (shape.type) {
+                case 'marker':
+                    console.log("marker")
+                    console.log(shape.coordinates)
+
+                    const markerCoords = convertGPSToMeters(
+                        shape.coordinates[0], 
+                        shape.coordinates[1], 
+                        refLat, 
+                        refLng
+                    );
+                    const markerPoint = point(markerCoords.x, markerCoords.y)
+                    markerPoint.id = shape.id
+                    markers.push(markerPoint);
+                    console.log(markers)
+
+                    break;
+                case 'circle':
+                    console.log("circle")
+
+                    const circleCoords = convertGPSToMeters(
+                        shape.coordinates.center[0], 
+                        shape.coordinates.center[1], 
+                        refLat, 
+                        refLng
+                    );
+                    const circleShape = circle(
+                        point(circleCoords.x, circleCoords.y), 
+                        shape.coordinates.radius,
+                    );
+                    // monkey patch in shape info
+                    circleShape.id = shape.id
+                    circleShape.soundType = shape.soundType
+
+                    planarSet.add(circleShape);
+                    break;
+                case 'rectangle':
+                    // layer = L.rectangle(shape.coordinates);
+                    console.log("rect")
+                    break;
+                case 'polygon':
+                    // layer = L.polygon(shape.coordinates);
+                    console.log("poly")
+                    break;
+                case 'circlemarker':
+                    // layer = L.circleMarker(shape.coordinates.center, { radius: shape.coordinates.radius });
+                    console.log("cmaker")
+                    break;
+                default:
+                    console.log("default")
+                    break;
+            }
+        });
+
+        console.log('PlanarSet:', planarSet);
+        console.log('Markers:', markers);
+        
+        // Check if markers exist before testing collisions
+        if (markers.length > 0) {
+            markers.forEach((marker, index) => {
+                console.log(`Testing marker ${index} - ${marker.id}:`, planarSet.hit(marker));
+            });
+        }
+    };
+
     // Import arrangement (shapes and map view) from JSON file
     const importArrangement = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -353,6 +462,26 @@ const DrawMapZones = () => {
                     onChange={importArrangement}
                 />
             </label>
+
+            <button
+                onClick={() => getCollisions(drawnShapes)}
+                style={{
+                    position: 'absolute',
+                    top: '620px',
+                    left: '10px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+            >
+                Get collisions
+            </button>
 
             <SoundKit
                 show={soundDropdown.show}
