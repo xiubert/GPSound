@@ -253,24 +253,6 @@ const DrawMapZones = () => {
         let markers = [];
         let planarSet = new PlanarSet();
 
-        // TEST COLLISIONS
-        let c = circle(point(200, 110), 50);
-        let c2 = circle(point(250, 160), 80);
-        const shapetest = [c, c2];
-        let psTest = new PlanarSet();
-        let qpoint = point(255, 180);
-        let qpoint2 = point(225, 110);
-        let qpoint3 = point(1,1);
-        shapetest.forEach((shape) => {
-            psTest.add(shape);
-        });
-        console.log("test qpoint")
-        console.log(psTest.hit(qpoint))
-        console.log("test qpoint2")
-        console.log(psTest.hit(qpoint2))
-        console.log("test qpoint3")
-        console.log(psTest.hit(qpoint3))
-
         console.log("Checking collisions for", shapes.length, "shapes");
         shapes.forEach(shape => {
             switch (shape.type) {
@@ -290,6 +272,7 @@ const DrawMapZones = () => {
                     console.log(markers)
 
                     break;
+
                 case 'circle':
                     console.log("circle")
 
@@ -309,18 +292,22 @@ const DrawMapZones = () => {
 
                     planarSet.add(circleShape);
                     break;
+
                 case 'rectangle':
                     // layer = L.rectangle(shape.coordinates);
                     console.log("rect")
                     break;
+
                 case 'polygon':
                     // layer = L.polygon(shape.coordinates);
                     console.log("poly")
                     break;
+
                 case 'circlemarker':
                     // layer = L.circleMarker(shape.coordinates.center, { radius: shape.coordinates.radius });
                     console.log("cmaker")
                     break;
+                    
                 default:
                     console.log("default")
                     break;
