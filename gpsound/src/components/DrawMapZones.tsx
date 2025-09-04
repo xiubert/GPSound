@@ -51,6 +51,7 @@ interface PolygonExt extends Flatten.Polygon {
 const DrawMapZones = () => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
+    const [mapLoc, ] = useState<L.LatLngTuple>([42.308606, -83.747036]);
     const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
     const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
     const [soundDropdown, setSoundDropdown] = useState<SoundDropdownState>({
@@ -62,11 +63,11 @@ const DrawMapZones = () => {
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
 
-        var gulestan: L.LatLngTuple = [42.308606, -83.747036];
+        // var gulestan: L.LatLngTuple = [42.308606, -83.747036];
 
         const map = L.map(mapRef.current, {
             maxZoom: 23
-        }).setView(gulestan, 13);
+        }).setView(mapLoc, 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
@@ -265,8 +266,8 @@ const DrawMapZones = () => {
     const getCollisions = (shapes: DrawnShape[]) => {
         if (drawnShapes.length === 0) return;
         // Use gulestan coordinates as reference
-        const refLat = 42.308606;
-        const refLng = -83.747036;
+        const refLat = mapLoc[0];
+        const refLng = mapLoc[1];
 
         // 
         let {point, circle, Polygon, PlanarSet} = Flatten;
