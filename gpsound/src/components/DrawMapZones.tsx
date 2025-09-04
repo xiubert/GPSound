@@ -29,6 +29,25 @@ interface SoundDropdownState {
     shapeId: number | null;
 }
 
+interface ConvertedCoords {
+    x: number;
+    y: number;
+}
+
+// Extend Flatten.js types to include custom props
+interface PointExt extends Flatten.Point {
+    id: string | number;
+    soundType: string | null;
+}
+interface CircleExt extends Flatten.Circle {
+    id: string | number;
+    soundType: string | null;
+}
+interface PolygonExt extends Flatten.Polygon {
+    id: string | number;
+    soundType: string | null;
+}
+
 const DrawMapZones = () => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
@@ -231,7 +250,8 @@ const DrawMapZones = () => {
     };
 
     // Convert GPS to meters relative to a reference point
-    const convertGPSToMeters = (lat, lng, refLat, refLng) => {
+    const GPStoMeters = (lat: number, lng: number, 
+                         refLat: number, refLng: number): ConvertedCoords => {
         const R = 6371000; // Earth's radius in meters
         const dLat = (lat - refLat) * Math.PI / 180;
         const dLng = (lng - refLng) * Math.PI / 180;
@@ -250,85 +270,83 @@ const DrawMapZones = () => {
 
         // 
         let {point, circle, Polygon, PlanarSet} = Flatten;
-        let markers = [];
+        let markers: any[] = [];
         let planarSet = new PlanarSet();
 
         console.log("Checking collisions for", shapes.length, "shapes");
         shapes.forEach(shape => {
             switch (shape.type) {
                 case 'marker':
-                    console.log("marker")
+                    console.log("marker:  ", shape.id)
                     console.log(shape.coordinates)
 
-                    const markerCoords = convertGPSToMeters(
+                    const markerCoords = GPStoMeters(
                         shape.coordinates[0], 
                         shape.coordinates[1], 
                         refLat, 
                         refLng
                     );
-                    const markerPoint = point(markerCoords.x, markerCoords.y)
-                    markerPoint.id = shape.id
+                    const markerPoint: PointExt = Object.assign(
+                        point(markerCoords.x, markerCoords.y),
+                        {
+                            id: shape.id,
+                            soundType: shape.soundType
+                        }
+                    )
                     markers.push(markerPoint);
-                    console.log(markers)
-
                     break;
 
                 case 'circle':
-                    console.log("circle")
+                    console.log("circle:  ", shape.id)
 
-                    const circleCoords = convertGPSToMeters(
+                    const circleCoords = GPStoMeters(
                         shape.coordinates.center[0], 
                         shape.coordinates.center[1], 
                         refLat, 
                         refLng
                     );
-                    const circleShape = circle(
-                        point(circleCoords.x, circleCoords.y), 
-                        shape.coordinates.radius,
+                    const circleShape: CircleExt = Object.assign(
+                        circle(point(circleCoords.x, circleCoords.y), shape.coordinates.radius),
+                        {
+                            id: shape.id,
+                            soundType: shape.soundType,
+                        }
                     );
-                    // monkey patch in shape info
-                    circleShape.id = shape.id
-                    circleShape.soundType = shape.soundType
-
                     planarSet.add(circleShape);
                     break;
 
                 case 'rectangle':
-                    const rectcoor = []
-                    shape.coordinates.forEach(pt => {
-                            const pointConv = convertGPSToMeters(
-                                pt[0], 
-                                pt[1], 
-                                refLat, 
-                                refLng
-                            )
+                    console.log("rectangle:  ", shape.id)
+                    const rectcoor: Flatten.Point[] = []
+                    shape.coordinates.forEach((pt: [number, number]) => {
+                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
                             rectcoor.push(point(pointConv.x, pointConv.y))
-                    })
-                    let rect = new Polygon()
-                    rect.addFace(rectcoor)
-                    rect.id = shape.id
-                    rect.soundType = shape.soundType
+                    });
+
+                    const rect = Object.assign(new Polygon(), {
+                        id: shape.id,
+                        soundType: shape.soundType,
+                    }) as PolygonExt;
+                    rect.addFace(rectcoor);
+
                     planarSet.add(rect);
                     break;
 
                 case 'polygon':
-                    console.log("poly")
-                    const polycoor = []
-                        shape.coordinates.forEach(pt => {
-                            const pointConv = convertGPSToMeters(
-                                pt[0], 
-                                pt[1], 
-                                refLat, 
-                                refLng
-                            )
+                    console.log("polygon:  ", shape.id)
+                    const polycoor: Flatten.Point[] = []
+                        shape.coordinates.forEach((pt: [number, number]) => {
+                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
                             polycoor.push(point(pointConv.x, pointConv.y))
                     })
-                    let polygon = new Polygon()
-                    polygon.addFace(polycoor)
-                    polygon.id = shape.id
-                    polygon.soundType = shape.soundType
-                    planarSet.add(polygon);
+                    
+                    const polygon = Object.assign(new Polygon(), {
+                        id: shape.id,
+                        soundType: shape.soundType,
+                    }) as PolygonExt;
+                    polygon.addFace(polycoor);
 
+                    planarSet.add(polygon);
                     break;
 
                 case 'circlemarker':
@@ -481,7 +499,7 @@ const DrawMapZones = () => {
                 onClick={() => getCollisions(drawnShapes)}
                 style={{
                     position: 'absolute',
-                    top: '620px',
+                    top: '625px',
                     left: '10px',
                     backgroundColor: '#3b82f6',
                     color: 'white',
