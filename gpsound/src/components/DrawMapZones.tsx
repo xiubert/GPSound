@@ -271,7 +271,7 @@ const DrawMapZones = () => {
 
         // 
         let {point, circle, Polygon, PlanarSet} = Flatten;
-        let markers: any[] = [];
+        let markers: PointExt[] = [];
         let planarSet = new PlanarSet();
 
         console.log("Checking collisions for", shapes.length, "shapes");
