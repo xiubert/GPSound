@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
+import Flatten from 'flatten-js';
 import SoundKit from './SoundKit'; // Import the separate component
 
 // Fix for default markers
@@ -28,9 +29,29 @@ interface SoundDropdownState {
     shapeId: number | null;
 }
 
+interface ConvertedCoords {
+    x: number;
+    y: number;
+}
+
+// Extend Flatten.js types to include custom props
+interface PointExt extends Flatten.Point {
+    id: string | number;
+    soundType: string | null;
+}
+interface CircleExt extends Flatten.Circle {
+    id: string | number;
+    soundType: string | null;
+}
+interface PolygonExt extends Flatten.Polygon {
+    id: string | number;
+    soundType: string | null;
+}
+
 const DrawMapZones = () => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
+    const [mapLoc, ] = useState<L.LatLngTuple>([42.308606, -83.747036]);
     const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
     const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
     const [soundDropdown, setSoundDropdown] = useState<SoundDropdownState>({
@@ -42,11 +63,11 @@ const DrawMapZones = () => {
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
 
-        var gulestan: L.LatLngTuple = [42.308606, -83.747036];
+        // var gulestan: L.LatLngTuple = [42.308606, -83.747036];
 
         const map = L.map(mapRef.current, {
             maxZoom: 23
-        }).setView(gulestan, 13);
+        }).setView(mapLoc, 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
@@ -229,6 +250,127 @@ const DrawMapZones = () => {
         });
     };
 
+    // Convert GPS to meters relative to a reference point
+    const GPStoMeters = (lat: number, lng: number, 
+                         refLat: number, refLng: number): ConvertedCoords => {
+        const R = 6371000; // Earth's radius in meters
+        const dLat = (lat - refLat) * Math.PI / 180;
+        const dLng = (lng - refLng) * Math.PI / 180;
+        
+        const x = dLng * Math.cos(refLat * Math.PI / 180) * R;
+        const y = dLat * R;
+        
+        return { x, y };
+    };
+
+    const getCollisions = (shapes: DrawnShape[]) => {
+        if (drawnShapes.length === 0) return;
+        // Use gulestan coordinates as reference
+        const refLat = mapLoc[0];
+        const refLng = mapLoc[1];
+
+        // 
+        let {point, circle, Polygon, PlanarSet} = Flatten;
+        let markers: PointExt[] = [];
+        let planarSet = new PlanarSet();
+
+        console.log("Checking collisions for", shapes.length, "shapes");
+        shapes.forEach(shape => {
+            switch (shape.type) {
+                case 'marker':
+                    console.log("marker:  ", shape.id)
+                    console.log(shape.coordinates)
+
+                    const markerCoords = GPStoMeters(
+                        shape.coordinates[0], 
+                        shape.coordinates[1], 
+                        refLat, 
+                        refLng
+                    );
+                    const markerPoint: PointExt = Object.assign(
+                        point(markerCoords.x, markerCoords.y),
+                        {
+                            id: shape.id,
+                            soundType: shape.soundType
+                        }
+                    )
+                    markers.push(markerPoint);
+                    break;
+
+                case 'circle':
+                    console.log("circle:  ", shape.id)
+
+                    const circleCoords = GPStoMeters(
+                        shape.coordinates.center[0], 
+                        shape.coordinates.center[1], 
+                        refLat, 
+                        refLng
+                    );
+                    const circleShape: CircleExt = Object.assign(
+                        circle(point(circleCoords.x, circleCoords.y), shape.coordinates.radius),
+                        {
+                            id: shape.id,
+                            soundType: shape.soundType,
+                        }
+                    );
+                    planarSet.add(circleShape);
+                    break;
+
+                case 'rectangle':
+                    console.log("rectangle:  ", shape.id)
+                    const rectcoor: Flatten.Point[] = []
+                    shape.coordinates.forEach((pt: [number, number]) => {
+                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
+                            rectcoor.push(point(pointConv.x, pointConv.y))
+                    });
+
+                    const rect = Object.assign(new Polygon(), {
+                        id: shape.id,
+                        soundType: shape.soundType,
+                    }) as PolygonExt;
+                    rect.addFace(rectcoor);
+
+                    planarSet.add(rect);
+                    break;
+
+                case 'polygon':
+                    console.log("polygon:  ", shape.id)
+                    const polycoor: Flatten.Point[] = []
+                        shape.coordinates.forEach((pt: [number, number]) => {
+                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
+                            polycoor.push(point(pointConv.x, pointConv.y))
+                    })
+                    
+                    const polygon = Object.assign(new Polygon(), {
+                        id: shape.id,
+                        soundType: shape.soundType,
+                    }) as PolygonExt;
+                    polygon.addFace(polycoor);
+
+                    planarSet.add(polygon);
+                    break;
+
+                case 'circlemarker':
+                    console.log("cmaker not implemented")
+                    break;
+                    
+                default:
+                    console.log("default")
+                    break;
+            }
+        });
+
+        console.log('PlanarSet:', planarSet);
+        console.log('Markers:', markers);
+        
+        // Check if markers exist before testing collisions
+        if (markers.length > 0) {
+            markers.forEach((marker, index) => {
+                console.log(`Testing marker ${index} - ${marker.id}:`, planarSet.hit(marker));
+            });
+        }
+    };
+
     // Import arrangement (shapes and map view) from JSON file
     const importArrangement = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -353,6 +495,26 @@ const DrawMapZones = () => {
                     onChange={importArrangement}
                 />
             </label>
+
+            <button
+                onClick={() => getCollisions(drawnShapes)}
+                style={{
+                    position: 'absolute',
+                    top: '625px',
+                    left: '10px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+            >
+                Get collisions
+            </button>
 
             <SoundKit
                 show={soundDropdown.show}
