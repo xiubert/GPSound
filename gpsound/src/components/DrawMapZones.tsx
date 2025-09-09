@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
 import Flatten from 'flatten-js';
+import { type DrawnShape } from '../sharedTypes';
 import SoundKit from './SoundKit'; // Import the separate component
 
 // Fix for default markers
@@ -15,13 +16,6 @@ let DefaultIcon = L.icon({
     iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
-
-interface DrawnShape {
-    id: number;
-    type: string;
-    coordinates: any;
-    soundType: string | null;
-}
 
 interface SoundDropdownState {
     show: boolean;
@@ -407,6 +401,7 @@ const DrawMapZones = () => {
         reader.readAsText(file);
     };
 
+    // update soundType assigned to shape
     const handleSoundSelect = (soundType: string) => {
         setDrawnShapes(prev =>
             prev.map(shape =>
@@ -517,6 +512,8 @@ const DrawMapZones = () => {
             </button>
 
             <SoundKit
+                // drawnShapes={drawnShapes}
+                shapeId={soundDropdown.shapeId}
                 show={soundDropdown.show}
                 position={soundDropdown.position}
                 onSoundSelect={handleSoundSelect}

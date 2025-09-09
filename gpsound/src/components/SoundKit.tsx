@@ -1,8 +1,10 @@
 // SoundKit.tsx
 import { useState } from 'react';
 import * as Tone from 'tone';
+// import { type DrawnShape } from '../sharedTypes';
 
 interface SoundKitProps {
+  shapeId: number | null;
   show: boolean;
   position: { x: number; y: number };
   onSoundSelect: (soundType: string) => void;
@@ -10,20 +12,26 @@ interface SoundKitProps {
   selectedSoundType?: string | null;
 }
 
-const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }: SoundKitProps) => {
-  //   const [isPlaying, setIsPlaying] = useState(false);
+interface ShapeSound {
+  shapeId: number | null;
+  soundType: string;
+  instrument: any;
+}
 
+const SoundKit = ({ shapeId, show, position, onSoundSelect, onClose, selectedSoundType }: SoundKitProps) => {
   const [_, setIsPlaying] = useState(false);
+  const [ActiveShapes, setActiveShapes] = useState<ShapeSound[]>([]);
 
   const soundOptions = [
     { id: 'fm-synth', name: 'FM Synth', note: 'C4' },
     { id: 'am-synth', name: 'AM Synth', note: 'G4' },
     { id: 'bass', name: 'Bass', note: 'C2' },
     { id: 'lead', name: 'Lead', note: 'C5' },
-    { id: 'drum', name: 'Drum Hit', note: 'C3' }
+    { id: 'drum', name: 'Drum Hit', note: 'C3' },
+    { id: 'drum_loop', name: 'Drum Loop', note: null}
   ];
 
-  const playSound = async (soundType: string, note: string) => {
+  const playSound = async (soundType: string, note: string | null, shapeId: number | null) => {
     await Tone.start(); // Ensure audio context is started
     setIsPlaying(true);
 
@@ -50,21 +58,79 @@ const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }:
       case 'drum':
         synth = new Tone.MembraneSynth().toDestination();
         break;
+      case 'drum_loop':
+        synth = new Tone.Player("https://tonejs.github.io/audio/drum-samples/breakbeat.mp3").toDestination();
+        synth.loop = true;
+        break;
       default:
         synth = new Tone.Synth().toDestination();
     }
 
-    synth.triggerAttackRelease(note, '8n');
+    if (synth.name == "Player") {
+      synth.autostart = true;
+    } else {
+      synth.triggerAttackRelease(note, '8n');
+    }
+
+    // Update ActiveShapes with add/update logic
+    if (shapeId !== null) {
+      setActiveShapes(prev => {
+        const existingIndex = prev.findIndex(ss => ss.shapeId === shapeId);
+        
+        if (existingIndex !== -1) {
+          const existing = prev[existingIndex];
+          
+          // If soundType changed, dispose old instrument and update
+          if (existing.soundType !== soundType) {
+            existing.instrument?.dispose?.();
+            
+            return [
+              ...prev.slice(0, existingIndex),
+              { shapeId, soundType, instrument: synth },
+              ...prev.slice(existingIndex + 1)
+            ];
+          }
+          return prev; // No change needed
+        }
+        
+        // Add new entry
+        return [...prev, { shapeId, soundType, instrument: synth }];
+      });
+    }
+
+    console.log('active shapes')
+    console.log(ActiveShapes)
 
     // Clean up synth after a delay
     setTimeout(() => {
       synth.dispose();
       setIsPlaying(false);
-    }, 2000);
+    }, 10000);
   };
 
-  const handleSoundSelect = (soundType: string, note: string) => {
-    playSound(soundType, note);
+  const stopSound = (shapeId: number | null) => {
+    // Find the matching shape sound
+    const matchedShapeSound = ActiveShapes.find(ss => ss.shapeId === shapeId);
+
+    // Dispose of the instrument if found
+    if (matchedShapeSound && matchedShapeSound.instrument) {
+      matchedShapeSound.instrument.dispose();
+    }
+
+    setActiveShapes(prev => 
+      prev.filter(shapeSound => shapeSound.shapeId !== shapeId)
+    )
+      // Stop transport if no more active sounds
+    // if (ActiveShapes.length <= 1) { // <= 1 because we're about to remove one
+    //   Tone.Transport.stop();
+    // }
+    // setIsPlaying(false);
+  };
+
+  const handleSoundSelect = (shapeId: number | null, 
+                             soundType: string, 
+                             note: string | null) => {
+    playSound(soundType, note, shapeId);
     onSoundSelect(soundType);
     onClose();
   };
@@ -100,7 +166,7 @@ const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }:
       {soundOptions.map((sound) => (
         <button
           key={sound.id}
-          onClick={() => handleSoundSelect(sound.id, sound.note)}
+          onClick={() => handleSoundSelect(shapeId, sound.id, sound.note)}
           style={{
             width: '100%',
             padding: '10px 12px',
@@ -136,6 +202,24 @@ const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }:
         </button>
       ))}
       <div style={{ borderTop: '1px solid #ddd', padding: '8px' }}>
+      <button
+          onClick={() => stopSound(shapeId)}
+          style={{
+            width: '100%',
+            padding: '8px',
+            border: '1px solid #ccc',
+            backgroundColor: '#f0f0f0',
+            color: '#666',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}
+          onMouseOver={(e) => (e.target as HTMLElement).style.backgroundColor = '#e0e0e0'}
+          onMouseOut={(e) => (e.target as HTMLElement).style.backgroundColor = '#f0f0f0'}
+        >
+          Stop audio
+      </button>
         <button
           onClick={onClose}
           style={{
