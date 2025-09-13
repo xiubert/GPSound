@@ -1,6 +1,6 @@
 // SoundKit.tsx
 // import { useState } from 'react';
-import * as Tone from 'tone';
+import SoundPlayer from './SoundPlayer'; // Import the separate component
 
 interface SoundKitProps {
   show: boolean;
@@ -21,59 +21,9 @@ const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }:
     { id: 'organ_loop', name: 'Organ Loop', note: 'C4'}
   ];
 
-  const playSoundDemo = async (soundType: string, note: string) => {
-    await Tone.start(); // Ensure audio context is started
-
-    let synth;
-    switch (soundType) {
-      case 'fm-synth':
-        synth = new Tone.FMSynth().toDestination();
-        synth.triggerAttackRelease(note, '8n');
-        break;
-      case 'am-synth':
-        synth = new Tone.AMSynth().toDestination();
-        synth.triggerAttackRelease(note, '8n');
-        break;
-      case 'bass':
-        synth = new Tone.MonoSynth({
-          oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.1, decay: 0.3, sustain: 0.3, release: 0.8 }
-        }).toDestination();
-        synth.triggerAttackRelease(note, '8n');
-        break;
-      case 'lead':
-        synth = new Tone.Synth({
-          oscillator: { type: 'square' },
-          envelope: { attack: 0.05, decay: 0.2, sustain: 0.2, release: 0.4 }
-        }).toDestination();
-        synth.triggerAttackRelease(note, '8n');
-        break;
-      case 'drum':
-        synth = new Tone.MembraneSynth().toDestination();
-        synth.triggerAttackRelease(note, '8n');
-        break;
-      case 'beat_loop':
-        synth = new Tone.Player("https://tonejs.github.io/audio/drum-samples/loops/blueyellow.mp3").toDestination();
-        synth.loop = true;
-        synth.autostart = true;
-        break;     
-      case 'organ_loop':
-        synth = new Tone.Player("https://tonejs.github.io/audio/drum-samples/loops/organ-echo-chords.mp3").toDestination();
-        synth.loop = true;
-        synth.autostart = true;
-        break;     
-      default:
-        synth = new Tone.Synth().toDestination();
-    }
-
-    // Clean up synth after a delay
-    setTimeout(() => {
-      synth.dispose();
-    }, 8000);
-  };
-
   const handleSoundSelect = (soundType: string, note: string) => {
-    playSoundDemo(soundType, note);
+    const soundPlayer = SoundPlayer.getInstance();
+    soundPlayer.playSingle(soundType, note);
     onSoundSelect(soundType);
     onClose();
   };
