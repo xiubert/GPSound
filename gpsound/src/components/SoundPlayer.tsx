@@ -1,10 +1,6 @@
 // SoundPlayer.ts - Utility for playing sounds
 import * as Tone from 'tone';
-
-// export interface SoundConfig {
-//   soundType: string;
-//   note: string;
-// }
+import { type SoundConfig } from '../sharedTypes';
 
 export class SoundPlayer {
   private static instance: SoundPlayer;
@@ -29,26 +25,26 @@ export class SoundPlayer {
     }, 8000);
   }
 
-//   async playMultiple(sounds: SoundConfig[]): Promise<void> {
-//     await Tone.start();
+  async playMultiple(sounds: SoundConfig[]): Promise<void> {
+    await Tone.start();
     
-//     // Clear any existing active synths
-//     this.stopAll();
+    // Clear any existing active synths
+    this.stopAll();
     
-//     // Create all synths first
-//     const synthConfigs = sounds.map(({ soundType, note }) => {
-//       const synth = this.createSynth(soundType);
-//       this.activeSynths.push(synth);
-//       return { synth, soundType, note };
-//     });
+    // Create all synths first
+    const synthConfigs = sounds.map(({ soundType, note }) => {
+      const synth = this.createSynth(soundType);
+      this.activeSynths.push(synth);
+      return { synth, soundType, note };
+    });
     
-//     // Schedule all to start at the same time
-//     const startTime = Tone.now() + 0.1;
+    // Schedule all to start at the same time
+    const startTime = Tone.now() + 0.1;
     
-//     synthConfigs.forEach(({ synth, soundType, note }) => {
-//       this.triggerSynth(synth, soundType, note, startTime);
-//     });
-//   }
+    synthConfigs.forEach(({ synth, soundType, note }) => {
+      this.triggerSynth(synth, soundType, note, startTime);
+    });
+  }
 
   stopAll(): void {
     this.activeSynths.forEach(synth => {

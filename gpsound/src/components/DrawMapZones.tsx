@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
 import Flatten from 'flatten-js';
-import SoundKit from './SoundKit'; // Import the separate component
+import SoundKit from './SoundKit';
+import SoundPlayer from './SoundPlayer';
+import { type SoundConfig } from '../sharedTypes';
 
 // Fix for default markers
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -364,7 +366,8 @@ const DrawMapZones = () => {
                 if (collision.length > 0) {collisions.push({markerId: marker.id, shapes: collision});};
             });
         };
-        console.log(collisions);
+        console.log("get collisions output:")
+        console.log(collisions)
         return collisions;
     };
 
@@ -423,6 +426,34 @@ const DrawMapZones = () => {
     // Find the selected sound type for the currently selected shape
     const selectedShape = drawnShapes.find(shape => shape.id === soundDropdown.shapeId);
     const selectedSoundType = selectedShape?.soundType || null;
+
+    // handle marker audio control
+    const handleUpdateMarkerAudio = () => {
+        let collided: Collision[] = [];
+        const result = getCollisions(drawnShapes);
+        if (result) {
+            const soundPlayer = SoundPlayer.getInstance();
+            collided = result;
+            console.log(collided);
+            // handle solely one marker right now
+            let sounds: SoundConfig[] = []
+            let markerCollisions: any[] = collided[0].shapes
+            markerCollisions.forEach(shape => {
+                sounds.push({
+                    soundType: shape.soundType,
+                    note: 'C4'
+                })
+            });
+            soundPlayer.playMultiple(sounds)
+        } else {
+            console.log("no marker shape collisions")
+        }
+    }
+
+    const handleStopAudio = () => {
+        const soundPlayer = SoundPlayer.getInstance();
+        soundPlayer.stopAll()
+    }
 
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
@@ -511,7 +542,45 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Get collisions
+                Get collisions (debug)
+            </button>
+            <button
+                onClick={handleUpdateMarkerAudio}
+                style={{
+                    position: 'absolute',
+                    top: '325px',
+                    left: '10px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+            >
+                Start Marker Audio
+            </button>
+            <button
+                onClick={handleStopAudio}
+                style={{
+                    position: 'absolute',
+                    top: '360px',
+                    left: '10px',
+                    backgroundColor: '#f63b3bff',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+            >
+                Stop Audio
             </button>
 
             <SoundKit
