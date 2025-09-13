@@ -23,6 +23,11 @@ interface DrawnShape {
     soundType: string | null;
 }
 
+interface Collision {
+    markerId: number | null;
+    shapes: DrawnShape[];
+}
+
 interface SoundDropdownState {
     show: boolean;
     position: { x: number; y: number };
@@ -36,15 +41,15 @@ interface ConvertedCoords {
 
 // Extend Flatten.js types to include custom props
 interface PointExt extends Flatten.Point {
-    id: string | number;
+    id: number;
     soundType: string | null;
 }
 interface CircleExt extends Flatten.Circle {
-    id: string | number;
+    id: number;
     soundType: string | null;
 }
 interface PolygonExt extends Flatten.Polygon {
-    id: string | number;
+    id: number;
     soundType: string | null;
 }
 
@@ -269,18 +274,13 @@ const DrawMapZones = () => {
         const refLat = mapLoc[0];
         const refLng = mapLoc[1];
 
-        // 
         let {point, circle, Polygon, PlanarSet} = Flatten;
         let markers: PointExt[] = [];
         let planarSet = new PlanarSet();
 
-        console.log("Checking collisions for", shapes.length, "shapes");
         shapes.forEach(shape => {
             switch (shape.type) {
                 case 'marker':
-                    console.log("marker:  ", shape.id)
-                    console.log(shape.coordinates)
-
                     const markerCoords = GPStoMeters(
                         shape.coordinates[0], 
                         shape.coordinates[1], 
@@ -298,8 +298,6 @@ const DrawMapZones = () => {
                     break;
 
                 case 'circle':
-                    console.log("circle:  ", shape.id)
-
                     const circleCoords = GPStoMeters(
                         shape.coordinates.center[0], 
                         shape.coordinates.center[1], 
@@ -317,7 +315,6 @@ const DrawMapZones = () => {
                     break;
 
                 case 'rectangle':
-                    console.log("rectangle:  ", shape.id)
                     const rectcoor: Flatten.Point[] = []
                     shape.coordinates.forEach((pt: [number, number]) => {
                             const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
@@ -334,7 +331,6 @@ const DrawMapZones = () => {
                     break;
 
                 case 'polygon':
-                    console.log("polygon:  ", shape.id)
                     const polycoor: Flatten.Point[] = []
                         shape.coordinates.forEach((pt: [number, number]) => {
                             const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
@@ -359,16 +355,17 @@ const DrawMapZones = () => {
                     break;
             }
         });
-
-        console.log('PlanarSet:', planarSet);
-        console.log('Markers:', markers);
         
-        // Check if markers exist before testing collisions
+        let collisions: Collision[] = []
+        // Compute marker collisions (may need to edit to update state var rather than create new var)
         if (markers.length > 0) {
-            markers.forEach((marker, index) => {
-                console.log(`Testing marker ${index} - ${marker.id}:`, planarSet.hit(marker));
+            markers.forEach((marker, ) => {
+                const collision: any[] = planarSet.hit(marker); 
+                if (collision.length > 0) {collisions.push({markerId: marker.id, shapes: collision});};
             });
-        }
+        };
+        console.log(collisions);
+        return collisions;
     };
 
     // Import arrangement (shapes and map view) from JSON file
@@ -407,6 +404,7 @@ const DrawMapZones = () => {
         reader.readAsText(file);
     };
 
+    // update soundType assigned to shape
     const handleSoundSelect = (soundType: string) => {
         setDrawnShapes(prev =>
             prev.map(shape =>
