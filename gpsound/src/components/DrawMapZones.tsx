@@ -519,6 +519,7 @@ const DrawMapZones = () => {
             <SoundKit
                 show={soundDropdown.show}
                 position={soundDropdown.position}
+                // update shape sound
                 onSoundSelect={handleSoundSelect}
                 onClose={closeSoundDropdown}
                 selectedSoundType={selectedSoundType}
