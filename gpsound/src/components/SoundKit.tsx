@@ -1,6 +1,7 @@
 // SoundKit.tsx
 import { useState } from 'react';
 import * as Tone from 'tone';
+import type { Frequency } from 'tone/build/esm/core/type/Units';
 // import { type DrawnShape } from '../sharedTypes';
 
 interface SoundKitProps {
@@ -28,10 +29,10 @@ const SoundKit = ({ shapeId, show, position, onSoundSelect, onClose, selectedSou
     { id: 'bass', name: 'Bass', note: 'C2' },
     { id: 'lead', name: 'Lead', note: 'C5' },
     { id: 'drum', name: 'Drum Hit', note: 'C3' },
-    { id: 'drum_loop', name: 'Drum Loop', note: null}
+    { id: 'drum_loop', name: 'Drum Loop', note: 'C4'}
   ];
 
-  const playSound = async (soundType: string, note: string | null, shapeId: number | null) => {
+  const playSound = async (soundType: string, note: Frequency, shapeId: number | null) => {
     await Tone.start(); // Ensure audio context is started
     setIsPlaying(true);
 
@@ -39,37 +40,38 @@ const SoundKit = ({ shapeId, show, position, onSoundSelect, onClose, selectedSou
     switch (soundType) {
       case 'fm-synth':
         synth = new Tone.FMSynth().toDestination();
+        synth.triggerAttackRelease(note, '8n');
         break;
       case 'am-synth':
         synth = new Tone.AMSynth().toDestination();
+        synth.triggerAttackRelease(note, '8n');
         break;
       case 'bass':
         synth = new Tone.MonoSynth({
           oscillator: { type: 'sawtooth' },
           envelope: { attack: 0.1, decay: 0.3, sustain: 0.3, release: 0.8 }
         }).toDestination();
+        synth.triggerAttackRelease(note, '8n');
         break;
       case 'lead':
         synth = new Tone.Synth({
           oscillator: { type: 'square' },
           envelope: { attack: 0.05, decay: 0.2, sustain: 0.2, release: 0.4 }
         }).toDestination();
+        synth.triggerAttackRelease(note, '8n');
         break;
       case 'drum':
         synth = new Tone.MembraneSynth().toDestination();
+        synth.triggerAttackRelease(note, '8n');
         break;
       case 'drum_loop':
         synth = new Tone.Player("https://tonejs.github.io/audio/drum-samples/breakbeat.mp3").toDestination();
         synth.loop = true;
+        synth.autostart = true;
         break;
       default:
         synth = new Tone.Synth().toDestination();
-    }
-
-    if (synth.name == "Player") {
-      synth.autostart = true;
-    } else {
-      synth.triggerAttackRelease(note, '8n');
+        synth.triggerAttackRelease(note, '8n');
     }
 
     // Update ActiveShapes with add/update logic
@@ -129,7 +131,7 @@ const SoundKit = ({ shapeId, show, position, onSoundSelect, onClose, selectedSou
 
   const handleSoundSelect = (shapeId: number | null, 
                              soundType: string, 
-                             note: string | null) => {
+                             note: Frequency) => {
     playSound(soundType, note, shapeId);
     onSoundSelect(soundType);
     onClose();
