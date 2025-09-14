@@ -4,13 +4,14 @@ import SoundPlayer from './SoundPlayer'; // Import the separate component
 
 interface SoundKitProps {
   show: boolean;
+  shapeId: number | null;
   position: { x: number; y: number };
   onSoundSelect: (soundType: string) => void;
   onClose: () => void;
   selectedSoundType?: string | null;
 }
 
-const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }: SoundKitProps) => {
+const SoundKit = ({ show, shapeId, position, onSoundSelect, onClose, selectedSoundType }: SoundKitProps) => {
   const soundOptions = [
     { id: 'fm-synth', name: 'FM Synth', note: 'C4' },
     { id: 'am-synth', name: 'AM Synth', note: 'G4' },
@@ -54,7 +55,7 @@ const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }:
         color: '#333',
         backgroundColor: '#f8f8f8'
       }}>
-        Select Sound
+        Select Sound for {shapeId}
       </div>
       {soundOptions.map((sound) => (
         <button
@@ -82,7 +83,7 @@ const SoundKit = ({ show, position, onSoundSelect, onClose, selectedSoundType }:
             (e.target as HTMLElement).style.color = '#333';
           }}
         >
-          {sound.name}
+          {sound.name} 
           {selectedSoundType === sound.id && (
             <span style={{
               position: 'absolute',

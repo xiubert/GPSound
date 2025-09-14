@@ -4,7 +4,8 @@ import 'leaflet-draw';
 import Flatten from 'flatten-js';
 import SoundKit from './SoundKit';
 import SoundPlayer from './SoundPlayer';
-import { type SoundConfig } from '../sharedTypes';
+import MarkerSelectDialog from './UserSelection';
+import type { DrawnShape, SoundConfig } from '../sharedTypes';
 
 // Fix for default markers
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -17,13 +18,6 @@ let DefaultIcon = L.icon({
     iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
-
-interface DrawnShape {
-    id: number;
-    type: string;
-    coordinates: any;
-    soundType: string | null;
-}
 
 interface Collision {
     markerId: number | null;
@@ -66,6 +60,8 @@ const DrawMapZones = () => {
         position: { x: 0, y: 0 },
         shapeId: null
     });
+    const [isMarkerDlgOpen, setIsMarkerDlgOpen] = useState(false);
+    const [chosenMarker, setChosenMarker] = useState<Number | null>(null);
 
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
@@ -214,6 +210,20 @@ const DrawMapZones = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    };
+
+
+    const handleOpenMarkerDlg = () => {
+        setIsMarkerDlgOpen(true);
+    };
+
+    const handleCloseMarkerDlg = () => {
+        setIsMarkerDlgOpen(false);
+    };
+
+    const handleMarkerSelect = (markerId: number) => {
+        setChosenMarker(markerId);
+        console.log(`Selected marker: ${markerId}`);
     };
 
     // Helper to draw shapes on the map from imported data
@@ -434,17 +444,25 @@ const DrawMapZones = () => {
         if (result) {
             const soundPlayer = SoundPlayer.getInstance();
             collided = result;
-            console.log(collided);
-            // handle solely one marker right now
-            let sounds: SoundConfig[] = []
-            let markerCollisions: any[] = collided[0].shapes
-            markerCollisions.forEach(shape => {
-                sounds.push({
-                    soundType: shape.soundType,
-                    note: 'C4'
-                })
-            });
-            soundPlayer.playMultiple(sounds)
+            // handle for chosen marker
+            const markerCollisions = collided.find(collision => collision.markerId === chosenMarker);
+            if (markerCollisions) {
+                const sounds: SoundConfig[] = markerCollisions.shapes
+                    .filter(shape => shape.soundType !== null)
+                    .map(shape => ({
+                        soundType: shape.soundType!,
+                        note: 'C4'
+                    }));
+                
+                if (sounds.length > 0) {
+                    soundPlayer.playMultiple(sounds);
+                } else {
+                    console.log("No shapes with sounds found for this marker");
+                }
+            } else {
+                console.log("marker not present in any shapes")
+            }
+
         } else {
             console.log("no marker shape collisions")
         }
@@ -544,11 +562,38 @@ const DrawMapZones = () => {
             >
                 Get collisions (debug)
             </button>
+            <div>
+                <button 
+                    onClick={handleOpenMarkerDlg}
+                    style={{
+                        position: 'absolute',
+                        top: '325px',
+                        left: '10px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        padding: '8px 12px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        zIndex: 1000,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                >
+                Select Active User
+                </button>
+                <MarkerSelectDialog
+                    isOpen={isMarkerDlgOpen}
+                    onClose={handleCloseMarkerDlg}
+                    onSelect={handleMarkerSelect}
+                    markers={drawnShapes.filter(shape => shape.type === 'marker')}
+                />
+            </div>
             <button
                 onClick={handleUpdateMarkerAudio}
                 style={{
                     position: 'absolute',
-                    top: '325px',
+                    top: '360px',
                     left: '10px',
                     backgroundColor: '#10b981',
                     color: 'white',
@@ -561,13 +606,13 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Start Marker Audio
+                Start User Audio
             </button>
             <button
                 onClick={handleStopAudio}
                 style={{
                     position: 'absolute',
-                    top: '360px',
+                    top: '395px',
                     left: '10px',
                     backgroundColor: '#f63b3bff',
                     color: 'white',
@@ -585,8 +630,8 @@ const DrawMapZones = () => {
 
             <SoundKit
                 show={soundDropdown.show}
+                shapeId={soundDropdown.shapeId}
                 position={soundDropdown.position}
-                // update shape sound
                 onSoundSelect={handleSoundSelect}
                 onClose={closeSoundDropdown}
                 selectedSoundType={selectedSoundType}
