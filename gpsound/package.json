@@ -16,7 +16,12 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tone": "^15.1.22",
-    "tsc": "^2.0.4"
+    "tsc": "^2.0.4",
+    "@automerge/automerge": ">=3.0.0",
+    "@automerge/automerge-repo": ">=2.2.0",
+    "@automerge/automerge-repo-network-websocket": ">=2.2.0",
+    "@automerge/automerge-repo-react-hooks": ">=2.2.0",
+    "vite-plugin-wasm": "^3.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
