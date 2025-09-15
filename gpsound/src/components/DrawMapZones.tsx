@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
 import Flatten from 'flatten-js';
-import SoundKit from './SoundKit'; // Import the separate component
+import SoundKit from './SoundKit';
+import SoundPlayer from './SoundPlayer';
+import MarkerSelectDialog from './UserSelection';
+import type { DrawnShape, SoundConfig } from '../sharedTypes';
 
 // Fix for default markers
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -16,11 +19,9 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-interface DrawnShape {
-    id: number;
-    type: string;
-    coordinates: any;
-    soundType: string | null;
+interface Collision {
+    markerId: number | null;
+    shapes: DrawnShape[];
 }
 
 interface SoundDropdownState {
@@ -36,15 +37,15 @@ interface ConvertedCoords {
 
 // Extend Flatten.js types to include custom props
 interface PointExt extends Flatten.Point {
-    id: string | number;
+    id: number;
     soundType: string | null;
 }
 interface CircleExt extends Flatten.Circle {
-    id: string | number;
+    id: number;
     soundType: string | null;
 }
 interface PolygonExt extends Flatten.Polygon {
-    id: string | number;
+    id: number;
     soundType: string | null;
 }
 
@@ -59,6 +60,8 @@ const DrawMapZones = () => {
         position: { x: 0, y: 0 },
         shapeId: null
     });
+    const [isMarkerDlgOpen, setIsMarkerDlgOpen] = useState(false);
+    const [chosenMarker, setChosenMarker] = useState<Number | null>(null);
 
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
@@ -209,6 +212,20 @@ const DrawMapZones = () => {
         URL.revokeObjectURL(url);
     };
 
+
+    const handleOpenMarkerDlg = () => {
+        setIsMarkerDlgOpen(true);
+    };
+
+    const handleCloseMarkerDlg = () => {
+        setIsMarkerDlgOpen(false);
+    };
+
+    const handleMarkerSelect = (markerId: number) => {
+        setChosenMarker(markerId);
+        console.log(`Selected marker: ${markerId}`);
+    };
+
     // Helper to draw shapes on the map from imported data
     const drawShapesOnMap = (shapes: DrawnShape[]) => {
         if (!drawnItemsRef.current) return;
@@ -269,18 +286,13 @@ const DrawMapZones = () => {
         const refLat = mapLoc[0];
         const refLng = mapLoc[1];
 
-        // 
         let {point, circle, Polygon, PlanarSet} = Flatten;
         let markers: PointExt[] = [];
         let planarSet = new PlanarSet();
 
-        console.log("Checking collisions for", shapes.length, "shapes");
         shapes.forEach(shape => {
             switch (shape.type) {
                 case 'marker':
-                    console.log("marker:  ", shape.id)
-                    console.log(shape.coordinates)
-
                     const markerCoords = GPStoMeters(
                         shape.coordinates[0], 
                         shape.coordinates[1], 
@@ -298,8 +310,6 @@ const DrawMapZones = () => {
                     break;
 
                 case 'circle':
-                    console.log("circle:  ", shape.id)
-
                     const circleCoords = GPStoMeters(
                         shape.coordinates.center[0], 
                         shape.coordinates.center[1], 
@@ -317,7 +327,6 @@ const DrawMapZones = () => {
                     break;
 
                 case 'rectangle':
-                    console.log("rectangle:  ", shape.id)
                     const rectcoor: Flatten.Point[] = []
                     shape.coordinates.forEach((pt: [number, number]) => {
                             const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
@@ -334,7 +343,6 @@ const DrawMapZones = () => {
                     break;
 
                 case 'polygon':
-                    console.log("polygon:  ", shape.id)
                     const polycoor: Flatten.Point[] = []
                         shape.coordinates.forEach((pt: [number, number]) => {
                             const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
@@ -359,16 +367,18 @@ const DrawMapZones = () => {
                     break;
             }
         });
-
-        console.log('PlanarSet:', planarSet);
-        console.log('Markers:', markers);
         
-        // Check if markers exist before testing collisions
+        let collisions: Collision[] = []
+        // Compute marker collisions (may need to edit to update state var rather than create new var)
         if (markers.length > 0) {
-            markers.forEach((marker, index) => {
-                console.log(`Testing marker ${index} - ${marker.id}:`, planarSet.hit(marker));
+            markers.forEach((marker, ) => {
+                const collision: any[] = planarSet.hit(marker); 
+                if (collision.length > 0) {collisions.push({markerId: marker.id, shapes: collision});};
             });
-        }
+        };
+        console.log("get collisions output:")
+        console.log(collisions)
+        return collisions;
     };
 
     // Import arrangement (shapes and map view) from JSON file
@@ -407,6 +417,7 @@ const DrawMapZones = () => {
         reader.readAsText(file);
     };
 
+    // update soundType assigned to shape
     const handleSoundSelect = (soundType: string) => {
         setDrawnShapes(prev =>
             prev.map(shape =>
@@ -425,6 +436,42 @@ const DrawMapZones = () => {
     // Find the selected sound type for the currently selected shape
     const selectedShape = drawnShapes.find(shape => shape.id === soundDropdown.shapeId);
     const selectedSoundType = selectedShape?.soundType || null;
+
+    // handle marker audio control
+    const handleUpdateMarkerAudio = () => {
+        let collided: Collision[] = [];
+        const result = getCollisions(drawnShapes);
+        if (result) {
+            const soundPlayer = SoundPlayer.getInstance();
+            collided = result;
+            // handle for chosen marker
+            const markerCollisions = collided.find(collision => collision.markerId === chosenMarker);
+            if (markerCollisions) {
+                const sounds: SoundConfig[] = markerCollisions.shapes
+                    .filter(shape => shape.soundType !== null)
+                    .map(shape => ({
+                        soundType: shape.soundType!,
+                        note: 'C4'
+                    }));
+                
+                if (sounds.length > 0) {
+                    soundPlayer.playMultiple(sounds);
+                } else {
+                    console.log("No shapes with sounds found for this marker");
+                }
+            } else {
+                console.log("marker not present in any shapes")
+            }
+
+        } else {
+            console.log("no marker shape collisions")
+        }
+    }
+
+    const handleStopAudio = () => {
+        const soundPlayer = SoundPlayer.getInstance();
+        soundPlayer.stopAll()
+    }
 
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
@@ -513,11 +560,77 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Get collisions
+                Get collisions (debug)
+            </button>
+            <div>
+                <button 
+                    onClick={handleOpenMarkerDlg}
+                    style={{
+                        position: 'absolute',
+                        top: '325px',
+                        left: '10px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        padding: '8px 12px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        zIndex: 1000,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                >
+                Select Active User
+                </button>
+                <MarkerSelectDialog
+                    isOpen={isMarkerDlgOpen}
+                    onClose={handleCloseMarkerDlg}
+                    onSelect={handleMarkerSelect}
+                    markers={drawnShapes.filter(shape => shape.type === 'marker')}
+                />
+            </div>
+            <button
+                onClick={handleUpdateMarkerAudio}
+                style={{
+                    position: 'absolute',
+                    top: '360px',
+                    left: '10px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+            >
+                Start User Audio
+            </button>
+            <button
+                onClick={handleStopAudio}
+                style={{
+                    position: 'absolute',
+                    top: '395px',
+                    left: '10px',
+                    backgroundColor: '#f63b3bff',
+                    color: 'white',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+            >
+                Stop Audio
             </button>
 
             <SoundKit
                 show={soundDropdown.show}
+                shapeId={soundDropdown.shapeId}
                 position={soundDropdown.position}
                 onSoundSelect={handleSoundSelect}
                 onClose={closeSoundDropdown}
