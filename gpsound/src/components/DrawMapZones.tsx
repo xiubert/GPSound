@@ -1,8 +1,51 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet-draw';
+import SoundKit from './SoundKit';
+import { useDocument } from '@automerge/automerge-repo-react-hooks';
+import { Repo } from '@automerge/automerge-repo';
+import { WebSocketClientAdapter } from '@automerge/automerge-repo-network-websocket';
 import Flatten from 'flatten-js';
-import SoundKit from './SoundKit'; // Import the separate component
+const { point, circle, Polygon, PlanarSet } = Flatten;
+
+// Type definitions for Flatten.js usage
+interface PointExt extends Flatten.Point {}
+interface CircleExt extends Flatten.Circle {}
+interface PolygonExt extends Flatten.Polygon {}
+
+// ArrangementDoc interface for Automerge
+interface ArrangementDoc {
+  shapes: DrawnShape[];
+  mapView: { center: [number, number]; zoom: number } | null;
+  userMarkers: { [userId: string]: { pos: [number, number]; avatarUrl: string } };
+}
+
+// Human-readable document ID generator
+const WORDS = [
+    'blue', 'green', 'red', 'yellow', 'purple', 'orange', 'silver', 'gold', 'happy', 'sad', 'tiger', 'lion', 'moon', 'star', 'cloud', 'river', 'mountain', 'forest', 'ocean', 'sky', 'sun', 'leaf', 'rock', 'tree', 'wolf', 'fox', 'owl', 'bear', 'fish', 'eagle', 'hawk', 'ant', 'bee', 'cat', 'dog', 'mouse', 'horse', 'frog', 'bat', 'deer', 'crab', 'shark', 'whale', 'dove', 'falcon', 'panda', 'koala', 'otter', 'seal', 'swan', 'goose', 'duck', 'peach', 'plum', 'pear', 'apple', 'grape', 'melon', 'berry', 'cherry', 'lemon', 'lime', 'nut', 'seed', 'root', 'branch', 'petal', 'bud', 'bark', 'shell', 'coral', 'wave', 'wind', 'rain', 'snow', 'storm', 'mist', 'fog', 'ice', 'fire', 'ember', 'ash', 'smoke', 'flame', 'light', 'dark', 'shadow', 'echo', 'song', 'dream', 'wish', 'luck', 'joy', 'peace', 'hope', 'love', 'grace', 'faith', 'truth', 'spirit', 'soul', 'heart', 'mind', 'voice', 'hand', 'eye', 'face', 'wing', 'tail', 'claw', 'paw', 'hoof', 'fin', 'scale', 'feather', 'fur', 'mane', 'horn', 'tusk', 'fang', 'beak', 'bill', 'web', 'spine', 'shell', 'star', 'moon', 'sun', 'cloud', 'rain', 'snow', 'storm', 'wind', 'wave', 'leaf', 'root', 'branch', 'petal', 'bud', 'bark', 'seed', 'nut', 'berry', 'peach', 'plum', 'pear', 'apple', 'grape', 'melon', 'cherry', 'lemon', 'lime', 'ant', 'bee', 'cat', 'dog', 'mouse', 'horse', 'frog', 'bat', 'deer', 'crab', 'shark', 'whale', 'dove', 'falcon', 'panda', 'koala', 'otter', 'seal', 'swan', 'goose', 'duck'
+];
+function generateDocId() {
+    const pick = () => WORDS[Math.floor(Math.random() * WORDS.length)];
+    return `${pick()}-${pick()}-${pick()}`;
+}
+// Utility to get a random avatar URL
+function getRandomAvatarUrl() {
+    const seed = Math.random().toString(36).substring(2, 10);
+    // Use RoboHash monsters set
+    return `https://robohash.org/${seed}?set=set3&size=48x48`;
+}
+
+// Utility to create a marker icon with a reticle overlay
+function createUserIconWithReticle(avatarUrl: string) {
+    // SVG with avatar and reticle (crosshair at bottom center)
+    // Use avatar URL directly
+    return L.icon({
+        iconUrl: avatarUrl,
+        iconSize: [48, 48],
+        iconAnchor: [24, 48],
+        className: 'user-profile-marker'
+    });
+}
 
 // Fix for default markers
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -34,40 +77,149 @@ interface ConvertedCoords {
     y: number;
 }
 
-// Extend Flatten.js types to include custom props
-interface PointExt extends Flatten.Point {
-    id: string | number;
-    soundType: string | null;
-}
-interface CircleExt extends Flatten.Circle {
-    id: string | number;
-    soundType: string | null;
-}
-interface PolygonExt extends Flatten.Polygon {
-    id: string | number;
-    soundType: string | null;
-}
+const AUTOMERGE_SERVER_URL = 'wss://sync.automerge.org';
 
 const DrawMapZones = () => {
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<L.Map | null>(null);
-    const [mapLoc, ] = useState<L.LatLngTuple>([42.308606, -83.747036]);
-    const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
+    // State hooks should be declared first
     const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
+    const [userMarker, setUserMarker] = useState<L.Marker | null>(null);
+    const [userMarkerPos, setUserMarkerPos] = useState<L.LatLngTuple>([42.308606, -83.747036]);
+    const [avatarUrl] = useState<string>(getRandomAvatarUrl());
     const [soundDropdown, setSoundDropdown] = useState<SoundDropdownState>({
         show: false,
         position: { x: 0, y: 0 },
         shapeId: null
     });
+    const userMarkersLayerRef = useRef<L.LayerGroup | null>(null);
+
+    // Get or set document ID in URL
+    const getOrSetDocId = () => {
+        const params = new URLSearchParams(window.location.search);
+        let docId = params.get('doc');
+        if (!docId) {
+            docId = generateDocId();
+            params.set('doc', docId);
+            window.location.search = params.toString();
+        }
+        return docId;
+    };
+    const docId = getOrSetDocId();
+
+    // Automerge repo setup
+    const [repo] = useState(() => {
+        const r = new Repo();
+        r.networkSubsystem.addNetworkAdapter(new WebSocketClientAdapter(AUTOMERGE_SERVER_URL));
+        return r;
+    });
+
+    // Create Automerge document if it doesn't exist
+    const [docHandle, setDocHandle] = useState<any>(null);
+    useEffect(() => {
+        let handle = repo.handles[docId as any];
+        if (!handle) {
+            handle = repo.create(docId as any);
+        }
+        setDocHandle(handle);
+    }, [repo, docId]);
+
+    // Use Automerge doc for arrangement
+    const [doc, change] = useDocument<ArrangementDoc>(docHandle?.documentId);
+
+    // Generate a userId for this session
+    const [userId] = useState(() => {
+        return 'user-' + Math.random().toString(36).substring(2, 10);
+    });
+
+    // On local state change, sync to Automerge
+    useEffect(() => {
+        if (!doc) return;
+            change(d => {
+                // Deep copy shapes and mapView to avoid Automerge reference errors
+                d.shapes = JSON.parse(JSON.stringify(drawnShapes));
+                const mv = repoMapView();
+                d.mapView = mv ? { ...mv } : null;
+                if (!d.userMarkers) d.userMarkers = {};
+                d.userMarkers[userId] = { pos: [userMarkerPos[0], userMarkerPos[1]], avatarUrl };
+            });
+    }, [drawnShapes, userMarkerPos]);
+
+    // On Automerge doc change, update local state
+    useEffect(() => {
+        if (!doc) return;
+        if (doc.shapes) setDrawnShapes(doc.shapes);
+        if (doc.userMarkers && doc.userMarkers[userId]) {
+            const newPos = [doc.userMarkers[userId].pos[0], doc.userMarkers[userId].pos[1]];
+            // Only update if position actually changed
+            if (userMarkerPos[0] !== newPos[0] || userMarkerPos[1] !== newPos[1]) {
+                setUserMarkerPos(newPos as L.LatLngTuple);
+            }
+        }
+        // Optionally update other users' markers here
+    }, [doc, userMarkerPos]);
+
+    // Render all user markers from Automerge
+    useEffect(() => {
+        if (!doc || !mapInstanceRef.current) return;
+        // Create LayerGroup for user markers if not exists
+        if (!userMarkersLayerRef.current) {
+            userMarkersLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+        }
+        // Remove all layers from the group
+        userMarkersLayerRef.current.clearLayers();
+        // Add markers for all users
+        if (doc.userMarkers) {
+            Object.entries(doc.userMarkers).forEach(([uid, info]) => {
+                if (!info.pos || !info.avatarUrl) return;
+                const icon = L.icon({
+                    iconUrl: info.avatarUrl,
+                    iconSize: [48, 48],
+                    iconAnchor: [24, 48],
+                    className: 'multiuser-marker'
+                });
+                const marker = L.marker(info.pos as [number, number], {
+                    icon,
+                    draggable: uid === userId // Only allow dragging for current user
+                });
+                if (uid === userId) {
+                    marker.on('drag', function () {
+                        const newPos = marker.getLatLng();
+                        setUserMarkerPos([newPos.lat, newPos.lng]);
+                    });
+                    marker.on('dragend', function () {
+                        const newPos = marker.getLatLng();
+                        setUserMarkerPos([newPos.lat, newPos.lng]);
+                    });
+                }
+                if (userMarkersLayerRef.current) {
+                    userMarkersLayerRef.current.addLayer(marker);
+                }
+            });
+        }
+    }, [doc, userId]);
+
+    // Helper to get current map view
+    function repoMapView() {
+        if (mapInstanceRef.current) {
+            const center = mapInstanceRef.current.getCenter();
+            const zoom = mapInstanceRef.current.getZoom();
+            return { center: [center.lat, center.lng] as [number, number], zoom };
+        }
+        return null;
+    }
+
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstanceRef = useRef<L.Map | null>(null);
+    const [mapLoc,] = useState<L.LatLngTuple>([42.308606, -83.747036]);
+    const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
 
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
 
-        // var gulestan: L.LatLngTuple = [42.308606, -83.747036];
+        var gulestan: L.LatLngTuple = [42.308606, -83.747036];
 
         const map = L.map(mapRef.current, {
             maxZoom: 23
-        }).setView(mapLoc, 13);
+        }).setView(gulestan, 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
@@ -96,6 +248,36 @@ const DrawMapZones = () => {
 
         mapInstanceRef.current = map;
         drawnItemsRef.current = drawnItems;
+
+        // Add user marker with avatar
+        const userIcon = createUserIconWithReticle(avatarUrl);
+        const marker = L.marker(userMarkerPos, {
+            icon: userIcon,
+            draggable: true
+        }).addTo(map);
+        marker.on('drag', function () {
+            const newPos = marker.getLatLng();
+            if (reticleMarker) {
+                reticleMarker.setLatLng(newPos);
+            }
+        });
+        marker.on('dragend', function () {
+            const newPos = marker.getLatLng();
+            setUserMarkerPos([newPos.lat, newPos.lng]);
+            if (reticleMarker) {
+                reticleMarker.setLatLng(newPos);
+            }
+        });
+        setUserMarker(marker);
+
+        // Add reticle marker (small green dot)
+        const reticleMarker = L.circleMarker(userMarkerPos, {
+            radius: 5,
+            color: '#10b981',
+            fillColor: '#10b981',
+            fillOpacity: 1,
+            weight: 2
+        }).addTo(map);
 
         map.on(L.Draw.Event.CREATED, function (event: any) {
             const layer = event.layer;
@@ -146,6 +328,21 @@ const DrawMapZones = () => {
                 mapInstanceRef.current = null;
             }
         };
+        // Update marker position if state changes
+        useEffect(() => {
+            if (userMarker) {
+                userMarker.setLatLng(userMarkerPos);
+            }
+            // Move reticle marker if it exists
+            const map = mapInstanceRef.current;
+            if (map) {
+                map.eachLayer(layer => {
+                    if (layer instanceof L.CircleMarker && layer.options.color === '#10b981') {
+                        layer.setLatLng(userMarkerPos);
+                    }
+                });
+            }
+        }, [userMarkerPos, userMarker]);
     }, []);
 
     const getCoordinates = function (layer: any, type: any) {
@@ -251,15 +448,15 @@ const DrawMapZones = () => {
     };
 
     // Convert GPS to meters relative to a reference point
-    const GPStoMeters = (lat: number, lng: number, 
-                         refLat: number, refLng: number): ConvertedCoords => {
+    const GPStoMeters = (lat: number, lng: number,
+        refLat: number, refLng: number): ConvertedCoords => {
         const R = 6371000; // Earth's radius in meters
         const dLat = (lat - refLat) * Math.PI / 180;
         const dLng = (lng - refLng) * Math.PI / 180;
-        
+
         const x = dLng * Math.cos(refLat * Math.PI / 180) * R;
         const y = dLat * R;
-        
+
         return { x, y };
     };
 
@@ -270,7 +467,6 @@ const DrawMapZones = () => {
         const refLng = mapLoc[1];
 
         // 
-        let {point, circle, Polygon, PlanarSet} = Flatten;
         let markers: PointExt[] = [];
         let planarSet = new PlanarSet();
 
@@ -282,9 +478,9 @@ const DrawMapZones = () => {
                     console.log(shape.coordinates)
 
                     const markerCoords = GPStoMeters(
-                        shape.coordinates[0], 
-                        shape.coordinates[1], 
-                        refLat, 
+                        shape.coordinates[0],
+                        shape.coordinates[1],
+                        refLat,
                         refLng
                     );
                     const markerPoint: PointExt = Object.assign(
@@ -301,9 +497,9 @@ const DrawMapZones = () => {
                     console.log("circle:  ", shape.id)
 
                     const circleCoords = GPStoMeters(
-                        shape.coordinates.center[0], 
-                        shape.coordinates.center[1], 
-                        refLat, 
+                        shape.coordinates.center[0],
+                        shape.coordinates.center[1],
+                        refLat,
                         refLng
                     );
                     const circleShape: CircleExt = Object.assign(
@@ -320,8 +516,8 @@ const DrawMapZones = () => {
                     console.log("rectangle:  ", shape.id)
                     const rectcoor: Flatten.Point[] = []
                     shape.coordinates.forEach((pt: [number, number]) => {
-                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
-                            rectcoor.push(point(pointConv.x, pointConv.y))
+                        const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
+                        rectcoor.push(point(pointConv.x, pointConv.y))
                     });
 
                     const rect = Object.assign(new Polygon(), {
@@ -336,11 +532,11 @@ const DrawMapZones = () => {
                 case 'polygon':
                     console.log("polygon:  ", shape.id)
                     const polycoor: Flatten.Point[] = []
-                        shape.coordinates.forEach((pt: [number, number]) => {
-                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
-                            polycoor.push(point(pointConv.x, pointConv.y))
+                    shape.coordinates.forEach((pt: [number, number]) => {
+                        const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
+                        polycoor.push(point(pointConv.x, pointConv.y))
                     })
-                    
+
                     const polygon = Object.assign(new Polygon(), {
                         id: shape.id,
                         soundType: shape.soundType,
@@ -353,7 +549,7 @@ const DrawMapZones = () => {
                 case 'circlemarker':
                     console.log("cmaker not implemented")
                     break;
-                    
+
                 default:
                     console.log("default")
                     break;
@@ -362,7 +558,7 @@ const DrawMapZones = () => {
 
         console.log('PlanarSet:', planarSet);
         console.log('Markers:', markers);
-        
+
         // Check if markers exist before testing collisions
         if (markers.length > 0) {
             markers.forEach((marker, index) => {
