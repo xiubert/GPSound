@@ -5,7 +5,7 @@ import Flatten from 'flatten-js';
 import SoundKit from './SoundKit';
 import SoundPlayer from './SoundPlayer';
 import MarkerSelectDialog from './UserSelection';
-import type { DrawnShape, SoundConfig } from '../sharedTypes';
+import type { DrawnLayer, DrawnShape, SoundConfig } from '../sharedTypes';
 
 // Fix for default markers
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -19,15 +19,11 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-interface Collision {
-    markerId: number | null;
-    shapes: DrawnShape[];
-}
-
 interface SoundDropdownState {
     show: boolean;
     position: { x: number; y: number };
     shapeId: number | null;
+    soundType: string | null;
 }
 
 interface ConvertedCoords {
@@ -35,33 +31,67 @@ interface ConvertedCoords {
     y: number;
 }
 
-// Extend Flatten.js types to include custom props
-interface PointExt extends Flatten.Point {
-    id: number;
-    soundType: string | null;
-}
-interface CircleExt extends Flatten.Circle {
-    id: number;
-    soundType: string | null;
-}
-interface PolygonExt extends Flatten.Polygon {
-    id: number;
-    soundType: string | null;
-}
-
 const DrawMapZones = () => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const [mapLoc, ] = useState<L.LatLngTuple>([42.308606, -83.747036]);
     const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
-    const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
+    const [drawnShapes, setDrawnShapes] = useState([]);
+    const [drawnMarkers, setDrawnMarkers] = useState([]);
+
+    // not accessible to shape click handler due to closure
+    // const [shapeMetadata, setShapeMetadata] = useState(new Map<Flatten.Shape, DrawnLayer>());
+    // const [markerMetadata, setMarkerMetadata] = useState(new Map());
+
+    const shapeMetadataRef = useRef(new Map<Flatten.Shape, DrawnLayer>());
+    const markerMetadataRef = useRef(new Map());
+
     const [soundDropdown, setSoundDropdown] = useState<SoundDropdownState>({
         show: false,
         position: { x: 0, y: 0 },
-        shapeId: null
+        shapeId: null,
+        soundType: null
     });
     const [isMarkerDlgOpen, setIsMarkerDlgOpen] = useState(false);
-    const [chosenMarker, setChosenMarker] = useState<Number | null>(null);
+    // const [chosenMarker, setChosenMarker] = useState<Number | null>(null);
+    const chosenMarkerRef = useRef<Flatten.Point>(null);
+    // shape and marker metadata handling
+    const removeShapeMeta = (k) => {
+        shapeMetadataRef.current.delete(k);
+    }
+    const removeMarkerMeta = (k) => {
+        markerMetadataRef.current.delete(k);
+    }
+    const addUpdateShapeMeta = (k, v) => {
+        shapeMetadataRef.current.set(k, v);
+    }
+    const addUpdateMarkerMeta = (k, v) => {
+        markerMetadataRef.current.set(k, v);
+    }
+
+    // Helper function to find current sound type for a shape
+    const getCurrentSoundType = (shapeId: number) => {
+        for (const [_, metadata] of shapeMetadataRef.current.entries()) {
+            if (metadata.id === shapeId) {
+                return metadata.soundType;
+            }
+        }
+        // If not found in shapes, check marker metadata
+        for (const [_, metadata] of markerMetadataRef.current.entries()) {
+            if (metadata.id === shapeId) {
+                return metadata.soundType;
+            }
+        }
+        return null;
+    };
+
+    const getMarker = (markerId: number) => {
+        for (const [marker, metadata] of markerMetadataRef.current.entries()) {
+            if (metadata.id === markerId) {
+                return marker;
+            }
+        }
+    }
 
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
@@ -106,28 +136,45 @@ const DrawMapZones = () => {
 
             drawnItems.addLayer(layer);
 
-            const shapeInfo: DrawnShape = {
-                id: Date.now(),
-                type: type,
-                coordinates: getCoordinates(layer, type),
-                soundType: null
-            };
+            const shapeCoor = getCoordinates(layer, type);
+            const shapeId = Date.now();
+            const flatShape = flattenShape(type, shapeCoor);
 
-            setDrawnShapes(prev => [...prev, shapeInfo]);
+            const shapeInfo: DrawnLayer = {
+                    id: shapeId,
+                    type: type,
+                    coordinates: shapeCoor,
+                    soundType: null
+            }
+
+            // Add to appropriate state based on type
+            if (type === 'marker') {
+                addUpdateMarkerMeta(flatShape, shapeInfo)
+                setDrawnMarkers(prev => [...prev, flatShape]);
+            } else {
+                addUpdateShapeMeta(flatShape, shapeInfo)
+                setDrawnShapes(prev => [...prev, flatShape]);
+            }
 
             // Add click handler to the new shape
-            layer.on('click', function (e: any) {
-                const containerPoint = map.mouseEventToContainerPoint(e.originalEvent);
-                setSoundDropdown({
-                    show: true,
-                    position: { x: containerPoint.x, y: containerPoint.y },
-                    shapeId: shapeInfo.id
-                });
-            });
+            if (flatShape !== null) {
+                layer.on('click', function (e: any) {
+                    if (!mapInstanceRef.current) return;
+                    const containerPoint = map.mouseEventToContainerPoint(e.originalEvent);
+                    const currentSoundType = getCurrentSoundType(shapeId);
 
-            console.log('Shape drawn. shapeInfo:', shapeInfo);
+                    setSoundDropdown({
+                        show: true,
+                        position: { x: containerPoint.x, y: containerPoint.y },
+                        shapeId: shapeId,
+                        soundType: currentSoundType
+                    });
+                });
+                console.log('Shape drawn. shapeInfo:', shapeInfo, flatShape);
+            }
         });
 
+        // TODO UPDATE SHAPE, MARKER, and METADATA STATE HERE:
         map.on(L.Draw.Event.DELETED, function (e: any) {
             var deletedLayers = e.layers;
             deletedLayers.eachLayer(function (layer: any) {
@@ -180,10 +227,12 @@ const DrawMapZones = () => {
         if (drawnItemsRef.current) {
             drawnItemsRef.current.clearLayers();
             setDrawnShapes([]);
+            setDrawnMarkers([]);
+            shapeMetadataRef.current.clear();
+            markerMetadataRef.current.clear();
             setSoundDropdown(prev => ({ ...prev, show: false }));
         }
     };
-
 
     // Export arrangement (shapes and map view) to JSON file
     const exportArrangement = () => {
@@ -212,7 +261,6 @@ const DrawMapZones = () => {
         URL.revokeObjectURL(url);
     };
 
-
     const handleOpenMarkerDlg = () => {
         setIsMarkerDlgOpen(true);
     };
@@ -222,7 +270,8 @@ const DrawMapZones = () => {
     };
 
     const handleMarkerSelect = (markerId: number) => {
-        setChosenMarker(markerId);
+        const marker = getMarker(markerId);
+        chosenMarkerRef.current = marker;
         console.log(`Selected marker: ${markerId}`);
     };
 
@@ -257,15 +306,78 @@ const DrawMapZones = () => {
                 layer.on('click', function (e: any) {
                     if (!mapInstanceRef.current) return;
                     const containerPoint = mapInstanceRef.current.mouseEventToContainerPoint(e.originalEvent);
+                    const currentSoundType = getCurrentSoundType(shape.id);
+
                     setSoundDropdown({
                         show: true,
                         position: { x: containerPoint.x, y: containerPoint.y },
-                        shapeId: shape.id
+                        shapeId: shape.id,
+                        soundType: currentSoundType
                     });
                 });
             }
         });
     };
+
+    // Get flatten object from leaflet shape
+    const flattenShape = (shapeType: string, shapeCoor: any) => {
+        const refLat = mapLoc[0];
+        const refLng = mapLoc[1];
+        let {point, circle, Polygon} = Flatten;
+        
+        switch (shapeType) {
+            case 'marker': {
+                const markerCoords = GPStoMeters(
+                    shapeCoor[0], 
+                    shapeCoor[1], 
+                    refLat, 
+                    refLng
+                );
+                return point(markerCoords.x, markerCoords.y);
+            }
+            case 'circle': {
+                const circleCoords = GPStoMeters(
+                    shapeCoor.center[0], 
+                    shapeCoor.center[1], 
+                    refLat, 
+                    refLng
+                );
+                return circle(point(circleCoords.x, circleCoords.y), shapeCoor.radius);
+            }
+            case 'rectangle': {
+                const rectcoor: Flatten.Point[] = []
+                shapeCoor.forEach((pt: [number, number]) => {
+                        const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
+                        rectcoor.push(point(pointConv.x, pointConv.y))
+                });
+                const rect = new Polygon();
+                rect.addFace(rectcoor);
+                return rect
+            }
+            case 'polygon': {
+                const polycoor: Flatten.Point[] = []
+                    shapeCoor.forEach((pt: [number, number]) => {
+                        const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
+                        polycoor.push(point(pointConv.x, pointConv.y))
+                })
+                const polygon = new Polygon();
+                polygon.addFace(polycoor);
+                return polygon
+            }
+            case 'circlemarker': {
+                const cmCoords = GPStoMeters(
+                    shapeCoor.center[0], 
+                    shapeCoor.center[1], 
+                    refLat, 
+                    refLng
+                );
+                return circle(point(cmCoords.x, cmCoords.y), shapeCoor.radius);
+            }
+            // default:
+            //     console.log("default")
+            //     return null
+            }
+    }
 
     // Convert GPS to meters relative to a reference point
     const GPStoMeters = (lat: number, lng: number, 
@@ -280,105 +392,32 @@ const DrawMapZones = () => {
         return { x, y };
     };
 
-    const getCollisions = (shapes: DrawnShape[]) => {
-        if (drawnShapes.length === 0) return;
-        // Use gulestan coordinates as reference
-        const refLat = mapLoc[0];
-        const refLng = mapLoc[1];
+    const getCollisions = (chosenMarker: Flatten.Point) => {
+        if (!chosenMarker) {
+            console.log("no marker selected")
+            return
+        }
+        if (drawnShapes.length === 0 || drawnMarkers.length === 0) {
+            console.log("No markers or shapes to check collisions");
+            return [];
+        }
+        // set of unique shapes
+        let planarSet = new Flatten.PlanarSet();
 
-        let {point, circle, Polygon, PlanarSet} = Flatten;
-        let markers: PointExt[] = [];
-        let planarSet = new PlanarSet();
-
-        shapes.forEach(shape => {
-            switch (shape.type) {
-                case 'marker':
-                    const markerCoords = GPStoMeters(
-                        shape.coordinates[0], 
-                        shape.coordinates[1], 
-                        refLat, 
-                        refLng
-                    );
-                    const markerPoint: PointExt = Object.assign(
-                        point(markerCoords.x, markerCoords.y),
-                        {
-                            id: shape.id,
-                            soundType: shape.soundType
-                        }
-                    )
-                    markers.push(markerPoint);
-                    break;
-
-                case 'circle':
-                    const circleCoords = GPStoMeters(
-                        shape.coordinates.center[0], 
-                        shape.coordinates.center[1], 
-                        refLat, 
-                        refLng
-                    );
-                    const circleShape: CircleExt = Object.assign(
-                        circle(point(circleCoords.x, circleCoords.y), shape.coordinates.radius),
-                        {
-                            id: shape.id,
-                            soundType: shape.soundType,
-                        }
-                    );
-                    planarSet.add(circleShape);
-                    break;
-
-                case 'rectangle':
-                    const rectcoor: Flatten.Point[] = []
-                    shape.coordinates.forEach((pt: [number, number]) => {
-                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
-                            rectcoor.push(point(pointConv.x, pointConv.y))
-                    });
-
-                    const rect = Object.assign(new Polygon(), {
-                        id: shape.id,
-                        soundType: shape.soundType,
-                    }) as PolygonExt;
-                    rect.addFace(rectcoor);
-
-                    planarSet.add(rect);
-                    break;
-
-                case 'polygon':
-                    const polycoor: Flatten.Point[] = []
-                        shape.coordinates.forEach((pt: [number, number]) => {
-                            const pointConv = GPStoMeters(pt[0], pt[1], refLat, refLng)
-                            polycoor.push(point(pointConv.x, pointConv.y))
-                    })
-                    
-                    const polygon = Object.assign(new Polygon(), {
-                        id: shape.id,
-                        soundType: shape.soundType,
-                    }) as PolygonExt;
-                    polygon.addFace(polycoor);
-
-                    planarSet.add(polygon);
-                    break;
-
-                case 'circlemarker':
-                    console.log("cmaker not implemented")
-                    break;
-                    
-                default:
-                    console.log("default")
-                    break;
-            }
+        // Add all shape flatten objects to planar set
+        drawnShapes.forEach(shape => { 
+                planarSet.add(shape)
         });
         
-        let collisions: Collision[] = []
         // Compute marker collisions (may need to edit to update state var rather than create new var)
-        if (markers.length > 0) {
-            markers.forEach((marker, ) => {
-                const collision: any[] = planarSet.hit(marker); 
-                if (collision.length > 0) {collisions.push({markerId: marker.id, shapes: collision});};
-            });
-        };
-        console.log("get collisions output:")
-        console.log(collisions)
-        return collisions;
+        const collidedShapes: any[] = planarSet.hit(chosenMarker); 
+        if (collidedShapes.length > 0) {
+            console.log("get collisions output:", collidedShapes)
+            return collidedShapes
+        } else {
+            console.log("no collisions for", markerMetadataRef.current.get(chosenMarker).shapeId)
+            return null
+        }
     };
 
     // Import arrangement (shapes and map view) from JSON file
@@ -419,52 +458,70 @@ const DrawMapZones = () => {
 
     // update soundType assigned to shape
     const handleSoundSelect = (soundType: string) => {
-        setDrawnShapes(prev =>
-            prev.map(shape =>
-                shape.id === soundDropdown.shapeId
-                    ? { ...shape, soundType }
-                    : shape
-            )
-        );
+        // Find and update the appropriate metadata
+        console.log("chosen sound type: ", soundType)
+        let updated = false;
+        
+        // Try to update shape metadata first
+        for (const [shape, metadata] of shapeMetadataRef.current.entries()) {
+            if (metadata.id === soundDropdown.shapeId) {
+                addUpdateShapeMeta(shape, { ...metadata, soundType });
+                updated = true;
+                break;
+            }
+        }
+        
+        // If not found in shapes, try markers
+        if (!updated) {
+            for (const [marker, metadata] of markerMetadataRef.current.entries()) {
+                if (metadata.id === soundDropdown.shapeId) {
+                    addUpdateMarkerMeta(marker, { ...metadata, soundType });
+                    updated = true;
+                    break;
+                }
+            }
+        }
+
+        // Update the dropdown state with the new sound type
+        setSoundDropdown(prev => ({ ...prev, soundType }));
+
         console.log(`Assigned sound "${soundType}" to shape ${soundDropdown.shapeId}`);
     };
 
     const closeSoundDropdown = () => {
-        setSoundDropdown(prev => ({ ...prev, show: false }));
+        setSoundDropdown({
+            show: false,
+            position: { x: 0, y: 0 },
+            shapeId: null,
+            soundType: null
+        });
     };
 
-    // Find the selected sound type for the currently selected shape
-    const selectedShape = drawnShapes.find(shape => shape.id === soundDropdown.shapeId);
-    const selectedSoundType = selectedShape?.soundType || null;
-
-    // handle marker audio control
     const handleUpdateMarkerAudio = () => {
-        let collided: Collision[] = [];
-        const result = getCollisions(drawnShapes);
-        if (result) {
-            const soundPlayer = SoundPlayer.getInstance();
-            collided = result;
-            // handle for chosen marker
-            const markerCollisions = collided.find(collision => collision.markerId === chosenMarker);
-            if (markerCollisions) {
-                const sounds: SoundConfig[] = markerCollisions.shapes
-                    .filter(shape => shape.soundType !== null)
-                    .map(shape => ({
-                        soundType: shape.soundType!,
-                        note: 'C4'
-                    }));
-                
-                if (sounds.length > 0) {
-                    soundPlayer.playMultiple(sounds);
-                } else {
-                    console.log("No shapes with sounds found for this marker");
-                }
-            } else {
-                console.log("marker not present in any shapes")
-            }
+        const collidedShapes = getCollisions(chosenMarkerRef.current);
 
+        if (collidedShapes) {
+            const soundPlayer = SoundPlayer.getInstance();
+
+            const sounds: SoundConfig[] = []
+            
+            collidedShapes.forEach(shape => {
+                const metadata = shapeMetadataRef.current.get(shape);
+                if (metadata?.soundType) {
+                    sounds.push({
+                        soundType: metadata.soundType,
+                        note: 'C4' // or get this from metadata if you store notes there
+                    });
+                }
+            });
+            
+            if (sounds.length > 0) {
+                soundPlayer.playMultiple(sounds);
+            } else {
+                console.log("No shapes with sounds found for this marker");
+            }
         } else {
-            console.log("no marker shape collisions")
+            console.log("marker not present in any shapes")
         }
     }
 
@@ -544,7 +601,7 @@ const DrawMapZones = () => {
             </label>
 
             <button
-                onClick={() => getCollisions(drawnShapes)}
+                onClick={() => getCollisions(chosenMarkerRef.current)}
                 style={{
                     position: 'absolute',
                     top: '625px',
@@ -583,10 +640,10 @@ const DrawMapZones = () => {
                 Select Active User
                 </button>
                 <MarkerSelectDialog
-                    isOpen={isMarkerDlgOpen}
+                    show={isMarkerDlgOpen}
                     onClose={handleCloseMarkerDlg}
                     onSelect={handleMarkerSelect}
-                    markers={drawnShapes.filter(shape => shape.type === 'marker')}
+                    markerMeta={markerMetadataRef.current}
                 />
             </div>
             <button
@@ -634,7 +691,7 @@ const DrawMapZones = () => {
                 position={soundDropdown.position}
                 onSoundSelect={handleSoundSelect}
                 onClose={closeSoundDropdown}
-                selectedSoundType={selectedSoundType}
+                selectedSoundType={soundDropdown.soundType}
             />
         </div>
     );

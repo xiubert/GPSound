@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import type { DrawnShape } from '../sharedTypes';
+import type { DrawnLayer } from '../sharedTypes';
+import Flatten from 'flatten-js';
 
 interface MarkerSelectDialogProps {
-    isOpen: boolean;
+    show: boolean;
     onClose: () => void;
     onSelect: (markerId: number) => void;
-    markers: DrawnShape[];
+    markerMeta: Map<Flatten.Point, DrawnLayer>;
 }
 
-const MarkerSelectDialog = ({ isOpen, onClose, onSelect, markers }: MarkerSelectDialogProps) => {
+const MarkerSelectDialog = ({ show, onClose, onSelect, markerMeta }: MarkerSelectDialogProps) => {
     const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null);
 
     const handleOptionChange = (markerId: number) => {
@@ -27,7 +28,9 @@ const MarkerSelectDialog = ({ isOpen, onClose, onSelect, markers }: MarkerSelect
         onClose();
     };
 
-    if (!isOpen) return null;
+    if (!show) return null;
+
+    const markerMetaArr = Array.from(markerMeta.values())
 
     return (
         <div
@@ -56,12 +59,12 @@ const MarkerSelectDialog = ({ isOpen, onClose, onSelect, markers }: MarkerSelect
                 Select Marker
             </div>
             
-            {markers.length === 0 ? (
-                <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
+            {markerMetaArr.length === 0 ? (
+                <div style={{ padding: '12px', color: '#667', fontStyle: 'italic' }}>
                     No markers available
                 </div>
             ) : (
-                markers.map((marker) => (
+                markerMetaArr.map((marker) => (
                     <button
                         key={marker.id}
                         onClick={() => handleOptionChange(marker.id)}
