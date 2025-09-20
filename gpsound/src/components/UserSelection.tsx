@@ -24,7 +24,6 @@ const MarkerSelectDialog = ({ show, onClose, onSelect, markerMeta }: MarkerSelec
     };
 
     const handleCancel = () => {
-        setSelectedMarkerId(null);
         onClose();
     };
 

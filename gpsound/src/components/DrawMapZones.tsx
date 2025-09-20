@@ -246,7 +246,11 @@ const DrawMapZones = () => {
             };
         }
         const exportData = {
-            shapes: drawnShapes,
+            // shapes: Array.from(shapeMetadataRef.current.entries()),
+            // markers: Array.from(markerMetadataRef.current.entries()),
+            shapes: Array.from(shapeMetadataRef.current.values())
+                .concat(Array.from(markerMetadataRef.current.values())
+            ),
             mapView
         };
         const dataStr = JSON.stringify(exportData, null, 2);
@@ -276,9 +280,10 @@ const DrawMapZones = () => {
     };
 
     // Helper to draw shapes on the map from imported data
-    const drawShapesOnMap = (shapes: DrawnShape[]) => {
+    const drawShapesOnMap = (shapes: DrawnLayer[]) => {
         if (!drawnItemsRef.current) return;
-        drawnItemsRef.current.clearLayers();
+        // drawnItemsRef.current.clearLayers();
+        clearArrangement
         shapes.forEach(shape => {
             let layer: L.Layer | null = null;
             switch (shape.type) {
@@ -302,6 +307,8 @@ const DrawMapZones = () => {
             }
             if (layer && drawnItemsRef.current) {
                 drawnItemsRef.current.addLayer(layer);
+                // Add shape metadata
+
                 // Add click handler for sound dropdown
                 layer.on('click', function (e: any) {
                     if (!mapInstanceRef.current) return;
@@ -315,6 +322,8 @@ const DrawMapZones = () => {
                         soundType: currentSoundType
                     });
                 });
+
+
             }
         });
     };
@@ -415,7 +424,7 @@ const DrawMapZones = () => {
             console.log("get collisions output:", collidedShapes)
             return collidedShapes
         } else {
-            console.log("no collisions for", markerMetadataRef.current.get(chosenMarker).shapeId)
+            console.log("no marker collisions")
             return null
         }
     };
@@ -429,8 +438,25 @@ const DrawMapZones = () => {
             try {
                 const importedData = JSON.parse(e.target?.result as string);
                 if (importedData && Array.isArray(importedData.shapes)) {
-                    setDrawnShapes(importedData.shapes);
-                    drawShapesOnMap(importedData.shapes);
+                    const markerObjs: any[] = []
+                    const shapeObjs: any[] = []
+                    const shapeMarkerMeta: DrawnLayer[] = []
+                    importedData.shapes.forEach( (shape: DrawnLayer) => {
+                        const shapeObj = flattenShape(shape.type, shape.coordinates);
+                        if (shape.type == 'marker') {
+                            markerObjs.push(shapeObj);
+                            addUpdateMarkerMeta(shapeObj, shape);
+                            shapeMarkerMeta.push(shape);
+                        } else {
+                            shapeObjs.push(shapeObj);
+                            addUpdateShapeMeta(shapeObj, shape);
+                            shapeMarkerMeta.push(shape);
+                        }
+                    })
+
+                    setDrawnShapes(shapeObjs);
+                    setDrawnMarkers(markerObjs);
+                    drawShapesOnMap(shapeMarkerMeta);
                     // Restore map view if present
                     if (importedData.mapView && mapInstanceRef.current) {
                         const { center, zoom } = importedData.mapView;
@@ -446,10 +472,13 @@ const DrawMapZones = () => {
                     }
                 } else if (Array.isArray(importedData)) {
                     // Fallback for old format
+                    // TO FIX
+                    console.log("old format")
                     setDrawnShapes(importedData);
                     drawShapesOnMap(importedData);
                 }
             } catch (err) {
+                console.log(err)
                 alert('Invalid JSON file');
             }
         };
