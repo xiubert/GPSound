@@ -20,11 +20,13 @@ export interface DrawnLayer {
     soundType: string | null;
 }
 
-export interface DrawnShape extends DrawnLayer {
-  flatShape: Flatten.Circle | Flatten.Polygon;
-}
+export type DrawnShape = Flatten.Circle | Flatten.Polygon;
 
-export interface DrawnMarker extends DrawnLayer {
-    type: "point";
-    flatShape: Flatten.Point;
-}
+// export interface DrawnShape extends DrawnLayer {
+//   flatShape: Flatten.Circle | Flatten.Polygon;
+// }
+
+// export interface DrawnMarker extends DrawnLayer {
+//     type: "point";
+//     flatShape: Flatten.Point;
+// }

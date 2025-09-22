@@ -36,16 +36,10 @@ const DrawMapZones = () => {
     const mapInstanceRef = useRef<L.Map | null>(null);
     const [mapLoc, ] = useState<L.LatLngTuple>([42.308606, -83.747036]);
     const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
-    const [drawnShapes, setDrawnShapes] = useState([]);
-    const [drawnMarkers, setDrawnMarkers] = useState([]);
-
-    // not accessible to shape click handler due to closure
-    // const [shapeMetadata, setShapeMetadata] = useState(new Map<Flatten.Shape, DrawnLayer>());
-    // const [markerMetadata, setMarkerMetadata] = useState(new Map());
-
-    const shapeMetadataRef = useRef(new Map<Flatten.Shape, DrawnLayer>());
-    const markerMetadataRef = useRef(new Map());
-
+    const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
+    const [drawnMarkers, setDrawnMarkers] = useState<Flatten.Point[]>([]);
+    const shapeMetadataRef = useRef(new Map<DrawnShape, DrawnLayer>());
+    const markerMetadataRef = useRef(new Map<Flatten.Point, DrawnLayer>());
     const [soundDropdown, setSoundDropdown] = useState<SoundDropdownState>({
         show: false,
         position: { x: 0, y: 0 },
@@ -53,21 +47,29 @@ const DrawMapZones = () => {
         soundType: null
     });
     const [isMarkerDlgOpen, setIsMarkerDlgOpen] = useState(false);
-    // const [chosenMarker, setChosenMarker] = useState<Number | null>(null);
-    const chosenMarkerRef = useRef<Flatten.Point>(null);
-    // shape and marker metadata handling
-    const removeShapeMeta = (k) => {
-        shapeMetadataRef.current.delete(k);
-    }
-    const removeMarkerMeta = (k) => {
-        markerMetadataRef.current.delete(k);
-    }
-    const addUpdateShapeMeta = (k, v) => {
+    let {point} = Flatten;
+    const chosenMarkerRef = useRef<Flatten.Point>(point(0,0));
+    
+    // handling state updates for shapes and markers
+    const addUpdateShapeMeta = (k: DrawnShape, v: DrawnLayer) => {
         shapeMetadataRef.current.set(k, v);
     }
-    const addUpdateMarkerMeta = (k, v) => {
+    const addUpdateMarkerMeta = (k: Flatten.Point, v: DrawnLayer) => {
         markerMetadataRef.current.set(k, v);
     }
+    const removeMarkerFromState = (markerToRemove: Flatten.Point) => {
+        // Remove from metadata
+        markerMetadataRef.current.delete(markerToRemove);
+        // Remove from state
+        setDrawnMarkers(prev => prev.filter(marker => marker !== markerToRemove));
+    };
+    const removeShapeFromState = (shapeToRemove: DrawnShape) => {
+        // Remove from metadata
+        shapeMetadataRef.current.delete(shapeToRemove);
+        // Remove from state
+        setDrawnShapes(prev => prev.filter(shape => shape !== shapeToRemove));
+    };
+
 
     // Helper function to find current sound type for a shape
     const getCurrentSoundType = (shapeId: number) => {
@@ -85,13 +87,23 @@ const DrawMapZones = () => {
         return null;
     };
 
-    const getMarker = (markerId: number) => {
+    const getMarkerByID = (markerId: number) => {
         for (const [marker, metadata] of markerMetadataRef.current.entries()) {
             if (metadata.id === markerId) {
                 return marker;
             }
         }
+        return null;
     }
+    const getShapeByID = (shapeId: number) => {
+        for (const [marker, metadata] of shapeMetadataRef.current.entries()) {
+            if (metadata.id === shapeId) {
+                return marker;
+            }
+        }
+        return null;
+    }
+
 
     useEffect(() => {
         if (!mapRef.current || mapInstanceRef.current) return;
@@ -133,11 +145,10 @@ const DrawMapZones = () => {
         map.on(L.Draw.Event.CREATED, function (event: any) {
             const layer = event.layer;
             const type = event.layerType;
-
             drawnItems.addLayer(layer);
 
+            const shapeId = L.stamp(layer);
             const shapeCoor = getCoordinates(layer, type);
-            const shapeId = Date.now();
             const flatShape = flattenShape(type, shapeCoor);
 
             const shapeInfo: DrawnLayer = {
@@ -149,11 +160,15 @@ const DrawMapZones = () => {
 
             // Add to appropriate state based on type
             if (type === 'marker') {
-                addUpdateMarkerMeta(flatShape, shapeInfo)
-                setDrawnMarkers(prev => [...prev, flatShape]);
+                if (flatShape instanceof Flatten.Point) {
+                    addUpdateMarkerMeta(flatShape, shapeInfo)
+                    setDrawnMarkers(prev => [...prev, flatShape]);
+                }
             } else {
-                addUpdateShapeMeta(flatShape, shapeInfo)
-                setDrawnShapes(prev => [...prev, flatShape]);
+                if (flatShape instanceof Flatten.Circle || flatShape instanceof Flatten.Polygon) {
+                    addUpdateShapeMeta(flatShape, shapeInfo)
+                    setDrawnShapes(prev => [...prev, flatShape]);
+                }
             }
 
             // Add click handler to the new shape
@@ -178,7 +193,18 @@ const DrawMapZones = () => {
         map.on(L.Draw.Event.DELETED, function (e: any) {
             var deletedLayers = e.layers;
             deletedLayers.eachLayer(function (layer: any) {
-                console.log('Deleted layer:', layer);
+                const leafletId = L.stamp(layer);
+                console.log('Deleted id:', leafletId);
+                // Remove from shapes
+                const shapeToRemove = getShapeByID(leafletId);
+                if (shapeToRemove) {
+                    removeShapeFromState(shapeToRemove);
+                }
+                // Remove from markers if not in shapes
+                const markerToRemove = getMarkerByID(leafletId);
+                if (markerToRemove) {
+                    removeMarkerFromState(markerToRemove);
+                }
             });
         });
 
@@ -246,8 +272,6 @@ const DrawMapZones = () => {
             };
         }
         const exportData = {
-            // shapes: Array.from(shapeMetadataRef.current.entries()),
-            // markers: Array.from(markerMetadataRef.current.entries()),
             shapes: Array.from(shapeMetadataRef.current.values())
                 .concat(Array.from(markerMetadataRef.current.values())
             ),
@@ -274,16 +298,21 @@ const DrawMapZones = () => {
     };
 
     const handleMarkerSelect = (markerId: number) => {
-        const marker = getMarker(markerId);
-        chosenMarkerRef.current = marker;
-        console.log(`Selected marker: ${markerId}`);
+        const marker = getMarkerByID(markerId);
+        if (marker) {  // Type guard to ensure marker is not undefined
+            chosenMarkerRef.current = marker;
+            console.log(`Selected marker: ${markerId}`);
+        } else {
+            console.log(`Marker with ID ${markerId} not found`);
+        }
     };
 
     // Helper to draw shapes on the map from imported data
-    const drawShapesOnMap = (shapes: DrawnLayer[]) => {
-        if (!drawnItemsRef.current) return;
+    const drawShapesOnMap = (shapes: DrawnLayer[]): DrawnLayer[] => {
+        if (!drawnItemsRef.current) return [];
         // drawnItemsRef.current.clearLayers();
-        clearArrangement
+        clearArrangement();
+        const updatedShapes: DrawnLayer[] = []
         shapes.forEach(shape => {
             let layer: L.Layer | null = null;
             switch (shape.type) {
@@ -306,6 +335,7 @@ const DrawMapZones = () => {
                     break;
             }
             if (layer && drawnItemsRef.current) {
+                shape.id = L.stamp(layer)
                 drawnItemsRef.current.addLayer(layer);
                 // Add shape metadata
 
@@ -322,10 +352,10 @@ const DrawMapZones = () => {
                         soundType: currentSoundType
                     });
                 });
-
-
+            updatedShapes.push(shape)
             }
         });
+        return updatedShapes;
     };
 
     // Get flatten object from leaflet shape
@@ -382,9 +412,8 @@ const DrawMapZones = () => {
                 );
                 return circle(point(cmCoords.x, cmCoords.y), shapeCoor.radius);
             }
-            // default:
-            //     console.log("default")
-            //     return null
+            default:
+                throw new Error(`Unknown shape type: ${shapeType}`);
             }
     }
 
@@ -438,25 +467,27 @@ const DrawMapZones = () => {
             try {
                 const importedData = JSON.parse(e.target?.result as string);
                 if (importedData && Array.isArray(importedData.shapes)) {
+                    const shapeMeta = drawShapesOnMap(importedData.shapes);
                     const markerObjs: any[] = []
                     const shapeObjs: any[] = []
-                    const shapeMarkerMeta: DrawnLayer[] = []
-                    importedData.shapes.forEach( (shape: DrawnLayer) => {
+                    // const shapeMarkerMeta: DrawnLayer[] = []
+                    shapeMeta.forEach( (shape: DrawnLayer) => {
                         const shapeObj = flattenShape(shape.type, shape.coordinates);
                         if (shape.type == 'marker') {
-                            markerObjs.push(shapeObj);
-                            addUpdateMarkerMeta(shapeObj, shape);
-                            shapeMarkerMeta.push(shape);
+                            if (shapeObj instanceof Flatten.Point) {
+                                markerObjs.push(shapeObj);
+                                addUpdateMarkerMeta(shapeObj, shape);
+                            }
                         } else {
-                            shapeObjs.push(shapeObj);
-                            addUpdateShapeMeta(shapeObj, shape);
-                            shapeMarkerMeta.push(shape);
+                            if (shapeObj instanceof Flatten.Circle || shapeObj instanceof Flatten.Polygon) {
+                                shapeObjs.push(shapeObj);
+                                addUpdateShapeMeta(shapeObj, shape);
+                            }
                         }
                     })
 
                     setDrawnShapes(shapeObjs);
                     setDrawnMarkers(markerObjs);
-                    drawShapesOnMap(shapeMarkerMeta);
                     // Restore map view if present
                     if (importedData.mapView && mapInstanceRef.current) {
                         const { center, zoom } = importedData.mapView;
@@ -472,7 +503,7 @@ const DrawMapZones = () => {
                     }
                 } else if (Array.isArray(importedData)) {
                     // Fallback for old format
-                    // TO FIX
+                    // TO REMOVE
                     console.log("old format")
                     setDrawnShapes(importedData);
                     drawShapesOnMap(importedData);
