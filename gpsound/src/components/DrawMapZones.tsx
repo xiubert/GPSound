@@ -447,7 +447,7 @@ const DrawMapZones = () => {
                 planarSet.add(shape)
         });
         
-        // Compute marker collisions (may need to edit to update state var rather than create new var)
+        // Compute marer collisions (may need to edit to update state var rather than create new var)
         const collidedShapes: any[] = planarSet.hit(chosenMarker); 
         if (collidedShapes.length > 0) {
             console.log("get collisions output:", collidedShapes)
@@ -457,6 +457,38 @@ const DrawMapZones = () => {
             return null
         }
     };
+
+    const nearestShapes = (chosenMarker: Flatten.Point) => {
+        // get array of shapes that do not include marker sorted by distance to marker
+        if (!chosenMarker) {
+            console.log("no marker selected")
+            return
+        }
+        if (drawnShapes.length === 0 || drawnMarkers.length === 0) {
+            console.log("No markers or shapes to check collisions");
+            return [];
+        }
+        const collidedShapes = getCollisions(chosenMarker);
+        const outsideShapes = drawnShapes.filter(x => !collidedShapes?.includes(x))
+        const nearestShapes: any[] = []
+        outsideShapes.forEach( (shape) => {
+            // decide to return shape or meta
+            nearestShapes.push({
+                shape: shape,
+                dist: chosenMarker.distanceTo(shape)[0]})
+        })
+        nearestShapes.sort((a,b) => a.dist - b.dist)
+        console.log(nearestShapes)
+        return nearestShapes
+    }
+
+    // nearby zones
+    // 1. get collusions, then filter out collided
+    // getDistance: arrA.filter(x => !arrB.includes(x)); ==> drawnShapes.filter(x => !collidedShapes.includes(x));
+    // 2. calculate distance to all other shapes ==> drawnShapes[1].distanceTo(chosenMarkerRef.current)
+    // drawnShapes.forEach((shape) => {console.log(shape.distanceTo(chosenMarkerRef.current))})
+    // 3. filter to those within x
+    // 4. ramp sound
 
     // Import arrangement (shapes and map view) from JSON file
     const importArrangement = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -661,7 +693,7 @@ const DrawMapZones = () => {
             </label>
 
             <button
-                onClick={() => getCollisions(chosenMarkerRef.current)}
+                onClick={() => nearestShapes(chosenMarkerRef.current)}
                 style={{
                     position: 'absolute',
                     top: '625px',
@@ -677,7 +709,7 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Get collisions (debug)
+                Get nearest (debug)
             </button>
             <div>
                 <button 
