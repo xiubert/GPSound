@@ -138,7 +138,7 @@ const DrawMapZones = () => {
             }
         });
         map.addControl(drawControl);
-
+        L.control.scale().addTo(map);
         mapInstanceRef.current = map;
         drawnItemsRef.current = drawnItems;
 
@@ -458,7 +458,20 @@ const DrawMapZones = () => {
         }
     };
 
-    const nearestShapes = (chosenMarker: Flatten.Point) => {
+
+    // nearby zones: modulate sound as user nears zone within distance threshold (meters)
+    // potentially calculated when user position changes by x amount
+    // 1. get collusions, then filter out collided
+    // getDistance: arrA.filter(x => !arrB.includes(x)); ==> drawnShapes.filter(x => !collidedShapes.includes(x));
+    // 2. calculate distance to all other shapes ==> drawnShapes[1].distanceTo(chosenMarkerRef.current)
+    // drawnShapes.forEach((shape) => {console.log(shape.distanceTo(chosenMarkerRef.current))})
+    // 3. filter to those within x
+    // 4. ramp sound
+    const nearestShapes = ({
+        chosenMarker, 
+        threshold} : {
+            chosenMarker: Flatten.Point,
+            threshold?: number}) => {
         // get array of shapes that do not include marker sorted by distance to marker
         if (!chosenMarker) {
             console.log("no marker selected")
@@ -470,25 +483,29 @@ const DrawMapZones = () => {
         }
         const collidedShapes = getCollisions(chosenMarker);
         const outsideShapes = drawnShapes.filter(x => !collidedShapes?.includes(x))
-        const nearestShapes: any[] = []
+        const shapeProximity: any[] = []
         outsideShapes.forEach( (shape) => {
-            // decide to return shape or meta
-            nearestShapes.push({
-                shape: shape,
-                dist: chosenMarker.distanceTo(shape)[0]})
+            // distance calculated as meters
+            const dist = chosenMarker.distanceTo(shape)[0]
+            // if threshold defined return shapes within distance threshold
+            if (threshold == null) {
+                shapeProximity.push({
+                    shape: shape,
+                    dist: dist}
+                )
+            } else {
+                if (dist <= threshold) {
+                    shapeProximity.push({
+                    shape: shape,
+                    dist: dist}
+                    )
+                }
+            }  
         })
-        nearestShapes.sort((a,b) => a.dist - b.dist)
-        console.log(nearestShapes)
-        return nearestShapes
+        shapeProximity.sort((a,b) => a.dist - b.dist)
+        console.log(shapeProximity)
+        return shapeProximity
     }
-
-    // nearby zones
-    // 1. get collusions, then filter out collided
-    // getDistance: arrA.filter(x => !arrB.includes(x)); ==> drawnShapes.filter(x => !collidedShapes.includes(x));
-    // 2. calculate distance to all other shapes ==> drawnShapes[1].distanceTo(chosenMarkerRef.current)
-    // drawnShapes.forEach((shape) => {console.log(shape.distanceTo(chosenMarkerRef.current))})
-    // 3. filter to those within x
-    // 4. ramp sound
 
     // Import arrangement (shapes and map view) from JSON file
     const importArrangement = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -693,7 +710,7 @@ const DrawMapZones = () => {
             </label>
 
             <button
-                onClick={() => nearestShapes(chosenMarkerRef.current)}
+                onClick={() => nearestShapes({chosenMarker: chosenMarkerRef.current, threshold: 30})}
                 style={{
                     position: 'absolute',
                     top: '625px',
