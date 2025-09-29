@@ -22,7 +22,7 @@ export class SoundPlayer {
     // Clean up after demo duration
     setTimeout(() => {
       synth.dispose();
-    }, 8000);
+    }, 4000);
   }
 
   async playMultiple(sounds: SoundConfig[]): Promise<void> {
