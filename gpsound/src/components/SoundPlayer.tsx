@@ -15,14 +15,23 @@ export class SoundPlayer {
 
   async playSingle(soundType: string, note: string): Promise<void> {
     await Tone.start();
+    const timeLimit = 4000;
     
     const synth = this.createSynth(soundType);
-    this.triggerSynth(synth, soundType, note);
-    
-    // Clean up after demo duration
-    setTimeout(() => {
-      synth.dispose();
-    }, 4000);
+    if (synth instanceof Array) {
+      this.triggerSynth(synth[0], soundType, note);
+      // Clean up after demo duration
+      setTimeout(() => {
+        synth.forEach((el) => el.dispose());
+        // Tone.Transport.stop()
+      }, timeLimit);
+    } else {
+      this.triggerSynth(synth, soundType, note);
+      // Clean up after demo duration
+      setTimeout(() => {
+        synth.dispose();
+    }, timeLimit);
+    }
   }
 
   async playMultiple(sounds: SoundConfig[]): Promise<void> {
@@ -83,14 +92,25 @@ export class SoundPlayer {
         const organPlayer = new Tone.Player("https://tonejs.github.io/audio/drum-samples/loops/organ-echo-chords.mp3").toDestination();
         organPlayer.loop = true;
         return organPlayer;
+      case 'test':
+        const synthA = new Tone.FMSynth().toDestination();
+        const synthB = new Tone.AMSynth().toDestination();
+        const loopA = new Tone.Loop((time) => {
+          synthA.triggerAttackRelease("D2", "8n", time);
+        }, "4n").start(0);
+        const loopB = new Tone.Loop((time) => {
+          synthB.triggerAttackRelease("A2", "8n", time);
+        }, "4n").start("8n");
+        return [loopA, loopB]
       default:
         return new Tone.Synth().toDestination();
     }
   }
 
   private triggerSynth(synth: any, soundType: string, note: string, startTime?: number): void {
-    if (soundType.includes('loop')) {
-    //   synth.start(startTime || Tone.now());
+    if (synth.name == "Loop") {
+      Tone.getTransport().start();
+    } else if (synth.name == "Player") {
       synth.autostart = true;
     } else {
       synth.triggerAttackRelease(note, '8n', startTime || Tone.now());

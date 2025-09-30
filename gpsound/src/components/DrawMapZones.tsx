@@ -590,6 +590,13 @@ const DrawMapZones = () => {
         soundPlayer.stopAll()
     }
 
+    const handleSoundboxing = () => {
+        const soundPlayer = SoundPlayer.getInstance();
+        console.log("playing test sound")
+        soundPlayer.playSingle("test", "C4")
+    }
+
+
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
             <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
@@ -661,7 +668,7 @@ const DrawMapZones = () => {
             </label>
 
             <button
-                onClick={() => getCollisions(chosenMarkerRef.current)}
+                onClick={handleSoundboxing}
                 style={{
                     position: 'absolute',
                     top: '625px',
@@ -677,7 +684,7 @@ const DrawMapZones = () => {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
             >
-                Get collisions (debug)
+                Sound test (debug)
             </button>
             <div>
                 <button 
