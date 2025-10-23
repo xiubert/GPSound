@@ -457,17 +457,14 @@ const DrawMapZones = () => {
             return null
         }
     };
-
-
-    // nearby zones: modulate sound as user nears zone within distance threshold (meters)
-    // potentially calculated when user position changes by x amount
-    // 1. get collusions, then filter out collided
-    // getDistance: arrA.filter(x => !arrB.includes(x)); ==> drawnShapes.filter(x => !collidedShapes.includes(x));
-    // 2. calculate distance to all other shapes ==> drawnShapes[1].distanceTo(chosenMarkerRef.current)
-    // drawnShapes.forEach((shape) => {console.log(shape.distanceTo(chosenMarkerRef.current))})
-    // 3. filter to those within x
-    // 4. ramp sound
+ 
     const nearestShapes = ({
+        // DONE: calculate distance of marker to nearest shapes within distance threshold (in meters)
+        // 1. get collusions, then filter out collided
+        // 2. calculate distance to all other shapes and return shapes within threshold
+        // TODO:
+        // modulate sound as user nears zone within distance threshold (meters) - eg ramp sound
+        // potentially calculated when user position changes by x amount
         chosenMarker, 
         threshold} : {
             chosenMarker: Flatten.Point,
