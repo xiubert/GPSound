@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useCollaboration } from '../collab/CollaborationProvider';
 import L from 'leaflet';
 import 'leaflet-draw';
 import Flatten from 'flatten-js';
@@ -48,6 +49,7 @@ const DrawMapZones = () => {
     });
     const [isMarkerDlgOpen, setIsMarkerDlgOpen] = useState(false);
     let {point} = Flatten;
+    const { doc, addShape: collabAddShape, deleteShape: collabDeleteShape, ensureMarker, deleteMarker, peerId } = useCollaboration();
     const chosenMarkerRef = useRef<Flatten.Point>(point(0,0));
     
     // handling state updates for shapes and markers
@@ -106,7 +108,7 @@ const DrawMapZones = () => {
 
 
     useEffect(() => {
-        if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current || mapInstanceRef.current) return;
 
         // var gulestan: L.LatLngTuple = [42.308606, -83.747036];
 
@@ -142,7 +144,7 @@ const DrawMapZones = () => {
         mapInstanceRef.current = map;
         drawnItemsRef.current = drawnItems;
 
-        map.on(L.Draw.Event.CREATED, function (event: any) {
+    map.on(L.Draw.Event.CREATED, function (event: any) {
             const layer = event.layer;
             const type = event.layerType;
             drawnItems.addLayer(layer);
@@ -163,11 +165,15 @@ const DrawMapZones = () => {
                 if (flatShape instanceof Flatten.Point) {
                     addUpdateMarkerMeta(flatShape, shapeInfo)
                     setDrawnMarkers(prev => [...prev, flatShape]);
+                    // push to collaboration doc (marker stored in markers array)
+                    ensureMarker(String(shapeInfo.id), { lat: shapeCoor[0], lng: shapeCoor[1], owner: peerId || 'unknown', soundType: null });
                 }
             } else {
                 if (flatShape instanceof Flatten.Circle || flatShape instanceof Flatten.Polygon) {
                     addUpdateShapeMeta(flatShape, shapeInfo)
                     setDrawnShapes(prev => [...prev, flatShape]);
+                    // store shape in collab doc
+                    collabAddShape({ id: String(shapeInfo.id), type: shapeInfo.type, coordinates: shapeInfo.coordinates, soundType: null });
                 }
             }
 
@@ -190,7 +196,7 @@ const DrawMapZones = () => {
         });
 
         // TODO UPDATE SHAPE, MARKER, and METADATA STATE HERE:
-        map.on(L.Draw.Event.DELETED, function (e: any) {
+    map.on(L.Draw.Event.DELETED, function (e: any) {
             var deletedLayers = e.layers;
             deletedLayers.eachLayer(function (layer: any) {
                 const leafletId = L.stamp(layer);
@@ -199,11 +205,13 @@ const DrawMapZones = () => {
                 const shapeToRemove = getShapeByID(leafletId);
                 if (shapeToRemove) {
                     removeShapeFromState(shapeToRemove);
+            collabDeleteShape(String(leafletId));
                 }
                 // Remove from markers if not in shapes
                 const markerToRemove = getMarkerByID(leafletId);
                 if (markerToRemove) {
                     removeMarkerFromState(markerToRemove);
+            deleteMarker(String(leafletId));
                 }
             });
         });
@@ -223,6 +231,61 @@ const DrawMapZones = () => {
             }
         };
     }, []);
+
+    // Reflect remote doc changes into Leaflet map (simple re-sync approach)
+    useEffect(() => {
+        if (!doc || !mapInstanceRef.current || !drawnItemsRef.current) return;
+        // Sync markers
+        if (doc.markers) {
+            // Add any new markers not locally represented
+            doc.markers.forEach(m => {
+                const exists = Array.from(markerMetadataRef.current.values()).some(md => md.id === Number(m.id));
+                if (!exists) {
+                    const latlng: [number, number] = [m.lat, m.lng];
+                    const markerLayer = L.marker(latlng);
+                    drawnItemsRef.current!.addLayer(markerLayer);
+                    const leafletId = L.stamp(markerLayer);
+                    const shapeInfo = { id: leafletId, type: 'marker', coordinates: latlng, soundType: m.soundType || null };
+                    const flatShape = flattenShape('marker', latlng);
+                    if (flatShape instanceof Flatten.Point) {
+                        addUpdateMarkerMeta(flatShape, shapeInfo);
+                        setDrawnMarkers(prev => [...prev, flatShape]);
+                    }
+                }
+            });
+        }
+        // Sync shapes
+        if (doc.shapes) {
+            doc.shapes.forEach(s => {
+                const exists = Array.from(shapeMetadataRef.current.values()).some(md => md.id === Number(s.id));
+                if (!exists) {
+                    let layer: L.Layer | null = null;
+                    switch (s.type) {
+                        case 'circle':
+                            layer = L.circle(s.coordinates.center, { radius: s.coordinates.radius }); break;
+                        case 'rectangle':
+                            layer = L.rectangle(s.coordinates); break;
+                        case 'polygon':
+                            layer = L.polygon(s.coordinates); break;
+                        case 'circlemarker':
+                            layer = L.circleMarker(s.coordinates.center, { radius: s.coordinates.radius }); break;
+                        default:
+                            return;
+                    }
+                    if (layer) {
+                        drawnItemsRef.current!.addLayer(layer);
+                        const leafletId = L.stamp(layer);
+                        const shapeInfo = { id: leafletId, type: s.type, coordinates: s.coordinates, soundType: s.soundType || null };
+                        const flatShape = flattenShape(s.type, s.coordinates);
+                        if (flatShape instanceof Flatten.Circle || flatShape instanceof Flatten.Polygon) {
+                            addUpdateShapeMeta(flatShape, shapeInfo);
+                            setDrawnShapes(prev => [...prev, flatShape]);
+                        }
+                    }
+                }
+            });
+        }
+    }, [doc]);
 
     const getCoordinates = function (layer: any, type: any) {
         switch (type) {
