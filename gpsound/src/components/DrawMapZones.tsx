@@ -72,7 +72,7 @@ const DrawMapZones = () => {
 
 
     // Helper function to find current sound type for a shape
-    const getCurrentSoundType = (shapeId: number) => {
+    const getCurrentsoundType = (shapeId: number) => {
         for (const [_, metadata] of shapeMetadataRef.current.entries()) {
             if (metadata.id === shapeId) {
                 return metadata.soundType;
@@ -176,13 +176,13 @@ const DrawMapZones = () => {
                 layer.on('click', function (e: any) {
                     if (!mapInstanceRef.current) return;
                     const containerPoint = map.mouseEventToContainerPoint(e.originalEvent);
-                    const currentSoundType = getCurrentSoundType(shapeId);
+                    const currentsoundType = getCurrentsoundType(shapeId);
 
                     setSoundDropdown({
                         show: true,
                         position: { x: containerPoint.x, y: containerPoint.y },
                         shapeId: shapeId,
-                        soundType: currentSoundType
+                        soundType: currentsoundType
                     });
                 });
                 console.log('Shape drawn. shapeInfo:', shapeInfo, flatShape);
@@ -343,13 +343,13 @@ const DrawMapZones = () => {
                 layer.on('click', function (e: any) {
                     if (!mapInstanceRef.current) return;
                     const containerPoint = mapInstanceRef.current.mouseEventToContainerPoint(e.originalEvent);
-                    const currentSoundType = getCurrentSoundType(shape.id);
+                    const currentsoundType = getCurrentsoundType(shape.id);
 
                     setSoundDropdown({
                         show: true,
                         position: { x: containerPoint.x, y: containerPoint.y },
                         shapeId: shape.id,
-                        soundType: currentSoundType
+                        soundType: currentsoundType
                     });
                 });
             updatedShapes.push(shape)

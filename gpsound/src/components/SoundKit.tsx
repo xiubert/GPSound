@@ -19,7 +19,8 @@ const SoundKit = ({ show, shapeId, position, onSoundSelect, onClose, selectedSou
     { id: 'lead', name: 'Lead', note: 'C5' },
     { id: 'drum', name: 'Drum Hit', note: 'C3' },
     { id: 'beat_loop', name: 'Beat Loop', note: 'C4'},
-    { id: 'organ_loop', name: 'Organ Loop', note: 'C4'}
+    { id: 'organ_loop', name: 'Organ Loop', note: 'C4'},
+    { id: 'test', name: 'Combo synth', note: 'C4'}
   ];
 
   const handleSoundSelect = (soundType: string, note: string) => {

@@ -2,9 +2,13 @@
 import * as Tone from 'tone';
 import { type SoundConfig } from '../sharedTypes';
 
+type SynthInstrument = Tone.Synth | Tone.FMSynth | Tone.AMSynth | Tone.MonoSynth | Tone.MembraneSynth;
+type Instrument = SynthInstrument | Tone.Loop | Tone.Player;
+type InstrumentGroup = Instrument | Instrument[];
+
 export class SoundPlayer {
   private static instance: SoundPlayer;
-  private activeSynths: any[] = [];
+  private activeInstruments: InstrumentGroup[] = [];
 
   static getInstance(): SoundPlayer {
     if (!SoundPlayer.instance) {
@@ -17,56 +21,44 @@ export class SoundPlayer {
     await Tone.start();
     const timeLimit = 4000;
     
-    const synth = this.createSynth(soundType);
-    if (synth instanceof Array) {
-      this.triggerSynth(synth[0], soundType, note);
-      // Clean up after demo duration
-      setTimeout(() => {
-        synth.forEach((el) => el.dispose());
-        // Tone.Transport.stop()
-      }, timeLimit);
-    } else {
-      this.triggerSynth(synth, soundType, note);
-      // Clean up after demo duration
-      setTimeout(() => {
-        synth.dispose();
+    const instrument = this.createInstrument(soundType);
+    this.triggerInstrument(instrument, note);
+    
+    // Clean up after demo duration
+    setTimeout(() => {
+      this.destroyInstrument(instrument);
     }, timeLimit);
-    }
   }
 
   async playMultiple(sounds: SoundConfig[]): Promise<void> {
     await Tone.start();
     
-    // Clear any existing active synths
+    // Clear any existing active instruments
     this.stopAll();
     
-    // Create all synths first
+    // Create all instruments first
     const synthConfigs = sounds.map(({ soundType, note }) => {
-      const synth = this.createSynth(soundType);
-      this.activeSynths.push(synth);
-      return { synth, soundType, note };
+      const instrument = this.createInstrument(soundType);
+      this.activeInstruments.push(instrument);
+      return { instrument, note };
     });
     
     // Schedule all to start at the same time
     const startTime = Tone.now() + 0.1;
     
-    synthConfigs.forEach(({ synth, soundType, note }) => {
-      this.triggerSynth(synth, soundType, note, startTime);
+    synthConfigs.forEach(({ instrument, note }) => {
+      this.triggerInstrument(instrument, note, startTime);
     });
   }
 
   stopAll(): void {
-    this.activeSynths.forEach(synth => {
-      try {
-        synth.dispose();
-      } catch (e) {
-        console.warn('Error disposing synth:', e);
-      }
+    this.activeInstruments.forEach(instrument => {
+      this.destroyInstrument(instrument);
     });
-    this.activeSynths = [];
+    this.activeInstruments = [];
   }
 
-  private createSynth(soundType: string): any {
+  private createInstrument(soundType: string): InstrumentGroup {
     switch (soundType) {
       case 'fm-synth':
         return new Tone.FMSynth().toDestination();
@@ -101,23 +93,46 @@ export class SoundPlayer {
         const loopB = new Tone.Loop((time) => {
           synthB.triggerAttackRelease("A2", "8n", time);
         }, "4n").start("8n");
-        return [loopA, loopB]
+        return [loopA, loopB];
       default:
         return new Tone.Synth().toDestination();
     }
   }
 
-  private triggerSynth(synth: any, soundType: string, note: string, startTime?: number): void {
-    if (synth.name == "Loop") {
-      Tone.getTransport().start();
-    } else if (synth.name == "Player") {
-      synth.autostart = true;
-    } else {
-      synth.triggerAttackRelease(note, '8n', startTime || Tone.now());
-    }
+  private triggerInstrument(instrument: InstrumentGroup, note: string, startTime?: number): void {
+    const instruments = Array.isArray(instrument) ? instrument : [instrument];
+    const time = startTime || Tone.now();
+    
+    instruments.forEach((inst) => {
+      if (inst instanceof Tone.Loop) {
+        Tone.getTransport().start();
+      } else if (inst instanceof Tone.Player) {
+        inst.autostart = true;
+      } else if (this.isSynthInstrument(inst)) {
+        inst.triggerAttackRelease(note, '8n', time);
+      }
+    });
+  }
+
+  private destroyInstrument(instrument: InstrumentGroup): void {
+    const instruments = Array.isArray(instrument) ? instrument : [instrument];
+    
+    instruments.forEach((inst) => {
+      try {
+        if (inst instanceof Tone.Loop) {
+          inst.stop();
+          Tone.getTransport().stop();
+        }
+        inst.dispose();
+      } catch (e) {
+        console.warn('Error disposing instrument:', e);
+      }
+    });
+  }
+
+  private isSynthInstrument(inst: Instrument): inst is SynthInstrument {
+    return 'triggerAttackRelease' in inst;
   }
 }
 
-export default SoundPlayer
-
-
+export default SoundPlayer;
