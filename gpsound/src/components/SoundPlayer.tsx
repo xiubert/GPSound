@@ -1,6 +1,6 @@
-// SoundPlayer.ts - Utility for playing sounds
 import * as Tone from 'tone';
 import { type SoundConfig } from '../sharedTypes';
+import { getInstrumentDefinition } from './instrumentConfig';
 
 type SynthInstrument = Tone.Synth | Tone.FMSynth | Tone.AMSynth | Tone.MonoSynth | Tone.MembraneSynth;
 type Instrument = SynthInstrument | Tone.Loop | Tone.Player;
@@ -24,7 +24,6 @@ export class SoundPlayer {
     const instrument = this.createInstrument(soundType);
     this.triggerInstrument(instrument, note);
     
-    // Clean up after demo duration
     setTimeout(() => {
       this.destroyInstrument(instrument);
     }, timeLimit);
@@ -33,17 +32,14 @@ export class SoundPlayer {
   async playMultiple(sounds: SoundConfig[]): Promise<void> {
     await Tone.start();
     
-    // Clear any existing active instruments
     this.stopAll();
     
-    // Create all instruments first
     const synthConfigs = sounds.map(({ soundType, note }) => {
       const instrument = this.createInstrument(soundType);
       this.activeInstruments.push(instrument);
       return { instrument, note };
     });
     
-    // Schedule all to start at the same time
     const startTime = Tone.now() + 0.1;
     
     synthConfigs.forEach(({ instrument, note }) => {
@@ -59,44 +55,12 @@ export class SoundPlayer {
   }
 
   private createInstrument(soundType: string): InstrumentGroup {
-    switch (soundType) {
-      case 'fm-synth':
-        return new Tone.FMSynth().toDestination();
-      case 'am-synth':
-        return new Tone.AMSynth().toDestination();
-      case 'bass':
-        return new Tone.MonoSynth({
-          oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.1, decay: 0.3, sustain: 0.3, release: 0.8 }
-        }).toDestination();
-      case 'lead':
-        return new Tone.Synth({
-          oscillator: { type: 'square' },
-          envelope: { attack: 0.05, decay: 0.2, sustain: 0.2, release: 0.4 }
-        }).toDestination();
-      case 'drum':
-        return new Tone.MembraneSynth().toDestination();
-      case 'beat_loop':
-        const beatPlayer = new Tone.Player("https://tonejs.github.io/audio/drum-samples/loops/blueyellow.mp3").toDestination();
-        beatPlayer.loop = true;
-        return beatPlayer;
-      case 'organ_loop':
-        const organPlayer = new Tone.Player("https://tonejs.github.io/audio/drum-samples/loops/organ-echo-chords.mp3").toDestination();
-        organPlayer.loop = true;
-        return organPlayer;
-      case 'test':
-        const synthA = new Tone.FMSynth().toDestination();
-        const synthB = new Tone.AMSynth().toDestination();
-        const loopA = new Tone.Loop((time) => {
-          synthA.triggerAttackRelease("D2", "8n", time);
-        }, "4n").start(0);
-        const loopB = new Tone.Loop((time) => {
-          synthB.triggerAttackRelease("A2", "8n", time);
-        }, "4n").start("8n");
-        return [loopA, loopB];
-      default:
-        return new Tone.Synth().toDestination();
+    const definition = getInstrumentDefinition(soundType);
+    if (definition) {
+      return definition.create();
     }
+    // Fallback to default synth
+    return new Tone.Synth().toDestination();
   }
 
   private triggerInstrument(instrument: InstrumentGroup, note: string, startTime?: number): void {
